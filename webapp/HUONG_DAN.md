@@ -112,6 +112,19 @@ Thêm/bớt người dùng: sửa `ALLOWED_EMAILS` trong Script Properties (có 
 
 ---
 
+# Dùng trên điện thoại có nhiều tài khoản Gmail
+
+Web luôn dùng tài khoản Google **mặc định** của trình duyệt; nếu đó không phải tài khoản được phép thì
+Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lần:
+
+- **iPhone:** mở link bằng Safari > nút Chia sẻ > **Thêm vào MH chính**. Mở web từ biểu tượng vừa tạo:
+  web chạy như một ứng dụng riêng, có đăng nhập riêng, tách khỏi Safari. Đăng nhập **chỉ** tài khoản dùng web.
+  Từ đó bấm biểu tượng là vào thẳng, không phải đăng nhập lại.
+- **Android:** biểu tượng màn hình chính của Chrome dùng chung đăng nhập với Chrome, nên hãy dùng **một trình duyệt
+  khác chỉ để chấm bài** (Firefox, Edge hoặc Samsung Internet): đăng nhập Google **chỉ một** tài khoản dùng web trong
+  trình duyệt đó, mở link, rồi menu > **Thêm vào màn hình chính**. Chrome vẫn giữ nguyên các tài khoản khác.
+- **Máy tính:** tạo một hồ sơ Chrome riêng chỉ đăng nhập tài khoản dùng web.
+
 # Cách dùng hằng ngày (trên điện thoại)
 
 **Tab 1. Chụp bài**
