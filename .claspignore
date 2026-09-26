@@ -1,0 +1,8 @@
+# Chỉ đẩy 4 file của web + file cấu hình lên Apps Script (đường dẫn tính từ webapp/).
+# Không đẩy test/*.js (dùng require của Node, sẽ làm hỏng web) và tài liệu.
+**/**
+!Code.gs
+!Grading.gs
+!Gemini.gs
+!Index.html
+!appsscript.json

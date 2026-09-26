@@ -1,0 +1,42 @@
+{
+  "default": {
+    "counted_columns": [
+      "TỪ VỰNG",
+      "CÔNG THỨC",
+      "CẤU TRÚC",
+      "CÂU GIÁN TIẾP"
+    ],
+    "levels": [
+      {
+        "min_wrong": 2,
+        "penalty": "từ viết sai x10 lần"
+      },
+      {
+        "min_wrong": 5,
+        "penalty": "từ mới x15 lần"
+      }
+    ],
+    "separate_columns": {
+      "QUY TẮC TRỌNG ÂM": [
+        {
+          "min_wrong": 3,
+          "penalty": "quy tắc trọng âm x7 lần"
+        }
+      ]
+    }
+  },
+  "classes": {
+    "TA8.1": {
+      "levels": [
+        {
+          "min_wrong": 2,
+          "penalty": "từ viết sai x10 lần"
+        },
+        {
+          "min_wrong": 5,
+          "penalty": "toàn bộ x10 lần"
+        }
+      ]
+    }
+  }
+}

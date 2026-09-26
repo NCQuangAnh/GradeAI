@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --ink: #1f2328; --muted: #6a6f76; --line: #e2e0da;
+    --accent: #7a3fb0; --accent-ink: #ffffff; --pink: #f0c8f8; --yellow: #ffff00;
+    --review: #fff1e0; --missing: #f2f2f2; --red: #d62222; --ok: #1f7a3a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+           padding: 14px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; }
+  header small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 80px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  h2 { font-size: 16px; margin: 14px 0 8px; }
+  h2:first-child { margin-top: 0; }
+  label.field { display: block; margin-bottom: 10px; font-weight: 600; font-size: 14px; }
+  select, input, textarea { font: inherit; font-size: 16px; width: 100%; padding: 9px 10px;
+                            border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1 1 auto; }
+  button, .btn { font: inherit; font-size: 15px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line);
+                 background: #fff; color: var(--ink); cursor: pointer; text-align: center; display: inline-block; }
+  button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); font-size: 14px; }
+  details summary { cursor: pointer; color: var(--accent); font-weight: 600; margin: 4px 0; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { flex: 1; font-weight: 600; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }
+  .thumb { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: #eee; aspect-ratio: 3/4; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 12px; padding: 3px 5px; background: rgba(0,0,0,.6); color: #fff; }
+  .thumb.err span { background: var(--red); }
+  button.thumb { padding: 0; cursor: pointer; display: block; }
+  .thumb .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+               padding: 6px; font-size: 11px; color: var(--muted); word-break: break-all; text-align: center; }
+  .thumb span.k { background: var(--accent); }
+  .thumb span.ok { background: var(--ok); }
+  button.danger { background: var(--red); border-color: var(--red); color: #fff; }
+  .thumb.warn { grid-column: 1 / -1; aspect-ratio: auto; display: flex; gap: 10px; align-items: center;
+                padding: 8px; background: var(--review); border-color: #f0c48a; }
+  .thumb.warn img { width: 72px; height: 96px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; }
+  .thumb.warn .wtext { font-size: 13px; line-height: 1.35; }
+  .thumb.warn .row { margin-top: 6px; }
+  .thumb.warn button { font-size: 13px; padding: 7px 10px; }
+  .dirty { color: var(--red); font-weight: 600; }
+  /* xem ảnh to */
+  .viewer { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: #111; }
+  .viewer[hidden] { display: none; }
+  .vbar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; color: #fff; }
+  .vbar #vName { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vbar button { flex: 1; }
+  .vimg { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; }
+  .vimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .vimg.zoom { display: block; }
+  .vimg.zoom img { max-width: none; max-height: none; width: 220%; }
+  #vMsg { color: #ccc; font-size: 13px; text-align: center; margin: 4px 12px; min-height: 18px; }
+  .alert { border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--review); border: 1px solid #f0c48a; }
+  .alert.bad { background: #fde8e8; border-color: #f2a3a3; }
+  .alert .row { margin-top: 8px; }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .keylist { font-size: 14px; margin: 6px 0 10px; padding-left: 20px; }
+  .tablewrap { overflow-x: auto; margin: 10px -14px 0; padding: 0 14px; }
+  /* bảng chấm: máy tính = bảng, điện thoại (<= 720px) = mỗi em một thẻ */
+  table.review { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 14px; }
+  table.review th { background: var(--pink); padding: 6px; border: 1px solid var(--line); text-align: left; }
+  table.review td { border: 1px solid var(--line); padding: 4px; vertical-align: top; background: #fff; }
+  table.review td:first-child, table.review th:first-child { position: sticky; left: 0; z-index: 1; min-width: 160px; }
+  table.review tr.missing td { background: var(--missing); }
+  table.review tr.review td { background: var(--review); }
+  table.review input, table.review textarea, table.review select { font-size: 14px; padding: 6px; }
+  table.review textarea { min-height: 38px; resize: vertical; }
+  table.review .wrong textarea { color: var(--red); }
+  table.review .links a { font-size: 13px; margin-right: 8px; display: inline-block; padding: 4px 0; }
+  table.review td.notes textarea { min-width: 260px; }
+  table.review .penSel { min-width: 170px; }
+  table.review .penText { margin-top: 4px; }
+  table.review textarea { overflow: hidden; }  /* ô tự giãn theo nội dung (autoGrow) */
+  #exportBox { position: sticky; bottom: 0; z-index: 3; background: var(--card); padding: 10px 0 4px;
+               border-top: 1px solid var(--line); margin-top: 8px; }
+  #exportBox p { margin: 0 0 8px; font-size: 14px; }
+  #exportBox:empty { display: none; }
+  @media (min-width: 1000px) { main { max-width: 1240px; } }
+  @media (min-width: 721px) {
+    table.review th.score { width: 120px; }
+    table.review th.pen { width: 200px; }
+    table.review th.delcell { width: 80px; }
+    #exportBox .row button { flex: 0 1 auto; min-width: 380px; }
+  }
+  @media (max-width: 720px) {
+    .tablewrap { overflow: visible; margin: 10px 0 0; padding: 0; }
+    table.review { min-width: 0; }
+    table.review thead { display: none; }
+    table.review, table.review tbody, table.review td { display: block; width: 100%; }
+    /* thẻ 2 cột: điểm và chép phạt nằm cạnh nhau, còn lại chiếm cả hàng */
+    table.review tr { display: grid; grid-template-columns: minmax(96px, 34%) 1fr; border: 1px solid var(--line); border-radius: 12px;
+                      margin-bottom: 12px; overflow: hidden; background: #fff; }
+    table.review td { grid-column: 1 / -1; order: 3; }
+    table.review td.namecell { order: 0; }
+    table.review td.half { grid-column: auto; }
+    table.review td.score { order: 1; }
+    table.review td.pen { order: 2; }
+    table.review td.notes { order: 4; }
+    table.review td.delcell { order: 5; }
+    table.review td, table.review td:first-child { position: static; border: none; border-bottom: 1px solid var(--line);
+                                                   padding: 8px 12px; min-width: 0; }
+    table.review td::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600;
+                              color: var(--muted); margin-bottom: 4px; }
+    table.review td.delcell { border-bottom: none; text-align: right; padding: 2px 8px; }
+    table.review td.delcell::before { display: none; }
+    table.review td.namecell input { font-weight: 700; }
+    table.review td.notes textarea { min-width: 0; }
+    table.review input, table.review textarea, table.review select { font-size: 16px; }  /* 16px: iPhone không tự phóng to */
+    table.review .penSel { min-width: 0; }
+    /* em không có bài: thẻ gọn, chỉ tên + Vắng/Không có bài */
+    table.review tr.missing td:not(.namecell):not(:nth-child(2)):not(.delcell) { display: none; }
+    table.review tr.missing td:nth-child(2) { grid-column: 1 / -1; }
+  }
+  .del { border: none; background: none; color: var(--muted); padding: 2px 6px; font-size: 13px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto; padding: 12px 14px;
+           border-radius: 10px; background: var(--ink); color: #fff; display: none; z-index: 9; }
+  #toast.bad { background: var(--red); }
+  /* export image: shown for a moment at the top of the page while html2canvas draws it */
+  #exportCanvas { display: none; position: absolute; left: 0; top: 0; z-index: 20; width: max-content;
+                  background: #fff; padding: 12px; }
+  #exportCanvas table { border-collapse: collapse; font: 20px "Times New Roman", serif; }
+  #exportCanvas td, #exportCanvas th { border: 1px solid #bbb; padding: 6px 14px; text-align: center; min-width: 170px; }
+  #exportCanvas td:first-child { text-align: left; font-weight: bold; }
+  #exportCanvas .title, #exportCanvas th { background: var(--pink); font-weight: bold; }
+  #exportCanvas .date, #exportCanvas .pen { background: var(--yellow); }
+  #exportCanvas .red { color: var(--red); }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+<header><h1>Chấm bài</h1><small><?= email ?></small></header>
+<main>
+  <section class="card">
+    <label class="field">Lớp <select id="cls"><option value="">Đang tải...</option></select></label>
+    <label class="field">Buổi <select id="ses" disabled></select></label>
+    <details id="newSes">
+      <summary>+ Tạo buổi mới</summary>
+      <div class="row">
+        <input id="newDate" placeholder="DD/MM/YY" inputmode="numeric" maxlength="8">
+        <button id="today" type="button">Hôm nay</button>
+      </div>
+      <p class="row"><button id="createSes" class="primary" type="button">Tạo folder buổi</button></p>
+    </details>
+    <p id="sesInfo" class="muted"></p>
+  </section>
+
+  <nav class="tabs">
+    <button data-tab="upload" class="on" type="button">1. Chụp bài</button>
+    <button data-tab="grade" type="button">2. Chấm bài</button>
+  </nav>
+
+  <section id="tab-upload" class="card">
+    <h2>Đáp án (key)</h2>
+    <p id="keyStatus" class="muted">Chọn buổi trước.</p>
+    <div class="row">
+      <label class="btn">Chụp đáp án<input type="file" accept="image/*" capture="environment" id="keyCam" hidden></label>
+      <label class="btn">Chọn ảnh đáp án<input type="file" accept="image/*" multiple id="keyPick" hidden></label>
+      <label class="btn">+ Thêm trang<input type="file" accept="image/*" capture="environment" id="keyAdd" hidden></label>
+    </div>
+    <p class="muted">Chụp/chọn đáp án mới sẽ thay đáp án cũ. Đáp án nhiều trang: chọn nhiều ảnh cùng lúc, hoặc chụp trang 1 rồi bấm "+ Thêm trang".</p>
+    <h2>Bài làm của học sinh</h2>
+    <p class="muted">Mỗi tờ một ảnh, chụp thẳng, đủ sáng, thấy rõ tên.</p>
+    <div class="row">
+      <label class="btn primary">Chụp bài<input type="file" accept="image/*" capture="environment" id="photoCam" hidden></label>
+      <label class="btn">Chọn nhiều ảnh<input type="file" accept="image/*" multiple id="photoPick" hidden></label>
+    </div>
+    <p id="uploadSummary" class="muted"></p>
+    <div id="queue" class="thumbs"></div>
+    <h2>Ảnh trong buổi này <span id="galleryCount" class="muted"></span></h2>
+    <p class="muted">Bấm vào ảnh để xem to và xóa ảnh chụp nhầm.</p>
+    <div id="gallery" class="thumbs"></div>
+  </section>
+
+  <section id="tab-grade" class="card" hidden>
+    <div id="gradeTop" class="muted">Chọn buổi trước.</div>
+    <div id="keyBox"></div>
+    <div id="progress"></div>
+    <div id="alertBox"></div>
+    <div id="tableBox"></div>
+    <div id="exportBox"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<div id="viewer" class="viewer" hidden>
+  <div class="vbar"><span id="vName"></span><button id="vClose" type="button" style="flex:0 0 auto">Đóng</button></div>
+  <div id="vImgWrap" class="vimg"><img id="vImg" alt=""></div>
+  <p id="vMsg"></p>
+  <div class="vbar">
+    <button id="vPrev" type="button">‹ Trước</button>
+    <button id="vDel" class="danger" type="button">Xóa ảnh này</button>
+    <button id="vNext" type="button">Sau ›</button>
+  </div>
+</div>
+<div id="exportCanvas"></div>
+<datalist id="rosterList"></datalist>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const S = { classes: [], sessions: [], clsId: '', sesId: '', info: null, key: null, table: null,
+            gradable: [], newPhotos: [], ignoredAdd: [], busy: false, cost: 0, freeCalls: 0 };
+const VND_PER_USD = 26000;
+
+// ---------- helpers ----------
+function run(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    const r = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+    r[fn](...args);
+  });
+}
+function toast(msg, bad) {
+  const t = $('toast'); t.textContent = msg; t.className = bad ? 'bad' : ''; t.style.display = 'block';
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = 'none'), bad ? 7000 : 3500);
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
+function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+function load(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+function money(usd) { return '$' + usd.toFixed(4) + ' (~' + Math.round(usd * VND_PER_USD).toLocaleString('vi-VN') + 'đ)'; }
+function costText() { return `${money(S.cost)} trả phí · ${S.freeCalls} lượt dùng key miễn phí`; }
+function track(r) { S.cost += r.costUsd || 0; if (r.paid === false) S.freeCalls++; }
+function errMsg(e) { return (e && e.message) || String(e); }
+
+// ---------- class / session ----------
+async function loadClasses() {
+  try {
+    S.classes = await run('listClasses');
+    $('cls').innerHTML = '<option value="">Chọn lớp</option>' +
+      S.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    const last = load('lastClass');
+    if (last && S.classes.some((c) => c.id === last)) { $('cls').value = last; await onClass(); }
+  } catch (e) { toast('Không tải được danh sách lớp: ' + errMsg(e), true); }
+}
+
+async function onClass(selectId) {
+  S.clsId = $('cls').value; store('lastClass', S.clsId);
+  $('ses').disabled = true; $('ses').innerHTML = '<option>Đang tải...</option>';
+  if (!S.clsId) { $('ses').innerHTML = ''; return; }
+  try {
+    S.sessions = await run('listSessions', S.clsId);
+    $('ses').innerHTML = '<option value="">Chọn buổi</option>' + S.sessions.map((s) =>
+      `<option value="${s.id}">${esc(s.label)} · ${s.photos} ảnh${s.hasKey ? '' : ' · chưa có key'}${s.sheetUrl ? ' · đã chấm' : ''}</option>`).join('');
+    $('ses').disabled = false;
+    const pick = selectId || load('lastSession');
+    if (pick && S.sessions.some((s) => s.id === pick)) $('ses').value = pick;
+    await onSession();
+  } catch (e) { toast('Không tải được các buổi: ' + errMsg(e), true); }
+}
+
+async function onSession() {
+  await flushSave();  // lưu nốt bảng của buổi đang mở trước khi đổi buổi
+  U.saved = 0; U.failed = 0; uploadSummary();
+  S.sesId = $('ses').value; store('lastSession', S.sesId);
+  S.info = null; S.key = null; S.table = null; S.ignoredAdd = []; S.cost = 0; S.freeCalls = 0;
+  S.exported = null; S.dirty = false;
+  $('queue').innerHTML = ''; ['keyBox', 'progress', 'alertBox', 'tableBox', 'exportBox'].forEach((id) => ($(id).innerHTML = ''));
+  const s = S.sessions.find((x) => x.id === S.sesId);
+  $('sesInfo').textContent = s ? `${s.photos} ảnh bài làm · ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}` : '';
+  $('keyStatus').textContent = s ? (s.hasKey ? 'Đã có ảnh đáp án.' : 'Chưa có ảnh đáp án.') : 'Chọn buổi trước.';
+  closeViewer();
+  renderGradeTop();
+  loadGallery();
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+$('today').onclick = () => { const d = new Date(); $('newDate').value = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${pad(d.getFullYear() % 100)}`; };
+$('createSes').onclick = async () => {
+  if (!S.clsId) return toast('Chọn lớp trước', true);
+  const text = $('newDate').value.trim();
+  if (!/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(text)) return toast('Ngày phải có dạng DD/MM/YY, ví dụ 27/09/26', true);
+  $('createSes').disabled = true;
+  try {
+    const r = await run('createSession', S.clsId, text);
+    toast(r.created ? 'Đã tạo folder ' + r.session.name : 'Buổi này đã có sẵn, đã chọn buổi đó');
+    $('newSes').open = false;
+    await onClass(r.session.id);
+  } catch (e) { toast(errMsg(e), true); }
+  $('createSes').disabled = false;
+};
+$('cls').onchange = () => onClass();
+$('ses').onchange = onSession;
+
+document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === name));
+  $('tab-upload').hidden = name !== 'upload'; $('tab-grade').hidden = name !== 'grade';
+  if (name === 'grade') $('tableBox').querySelectorAll('textarea').forEach(autoGrow);
+  if (name === 'grade' && S.sesId && !S.busy && !$('keyBox').innerHTML) flushSave().then(renderGradeTop);
+}
+
+// ---------- upload ----------
+// Ngưỡng đo trên 32 ảnh thật lớp TA6 (tools/calibrate_quality.py): ảnh thật có độ nét 749-2525,
+// độ sáng 157-190; ảnh mờ nhẹ 164-626, mờ nặng dưới 90; ảnh tối độ sáng 55-66.
+const QUALITY = { minSharpness: 350, minBrightness: 100 };
+
+/** Đo độ sáng và độ nét ở giữa ảnh (bỏ viền bàn), giống tools/calibrate_quality.py. */
+function photoQuality(src) {
+  const s = Math.min(1, 800 / Math.max(src.width, src.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(src.width * s); c.height = Math.round(src.height * s);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, c.width, c.height);
+  const x0 = Math.floor(c.width * 0.2), y0 = Math.floor(c.height * 0.2);
+  const w = Math.floor(c.width * 0.6), h = Math.floor(c.height * 0.6);
+  const d = ctx.getImageData(x0, y0, w, h).data, g = new Float32Array(w * h);
+  let sum = 0;
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) { g[j] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; sum += g[j]; }
+  let n = 0, mean = 0, m2 = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const k = y * w + x, lap = 4 * g[k] - g[k - 1] - g[k + 1] - g[k - w] - g[k + w];
+      n++; const dl = lap - mean; mean += dl / n; m2 += dl * (lap - mean);
+    }
+  }
+  const brightness = sum / (w * h), sharpness = n ? m2 / n : 0;
+  return { brightness, sharpness,
+           dark: brightness < QUALITY.minBrightness, blurry: sharpness < QUALITY.minSharpness };
+}
+
+function toJpegB64(file, maxSide, quality) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+      const cx = c.getContext('2d');
+      cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+      cx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const p = document.createElement('canvas'), ps = Math.min(1, 320 / Math.max(c.width, c.height));  // ảnh nhỏ để hiện trong lưới
+      p.width = Math.round(c.width * ps); p.height = Math.round(c.height * ps);
+      p.getContext('2d').drawImage(c, 0, 0, p.width, p.height);
+      let q = null;
+      try { q = photoQuality(c); } catch (e) { q = null; }
+      resolve({ b64: c.toDataURL('image/jpeg', quality).split(',')[1], mime: 'image/jpeg',
+                preview: p.toDataURL('image/jpeg', 0.7), quality: q });
+    };
+    img.onerror = () => {  // e.g. HEIC the browser cannot draw: upload the original, Gemini reads HEIC
+      URL.revokeObjectURL(url);
+      const fr = new FileReader();
+      fr.onload = () => resolve({ b64: String(fr.result).split(',')[1], mime: file.type || 'image/heic', preview: '', quality: null });
+      fr.readAsDataURL(file);
+    };
+    img.src = url;
+  });
+}
+
+let processing = Promise.resolve(), uploading = Promise.resolve();
+const U = { saved: 0, failed: 0, pending: 0 };
+function uploadSummary() {
+  $('uploadSummary').textContent = (U.saved || U.failed || U.pending)
+    ? `Đã lưu ${U.saved} ảnh${U.pending ? ` · đang xử lý ${U.pending}` : ''}${U.failed ? ` · ${U.failed} ảnh lỗi (chụp lại)` : ''}` : '';
+}
+
+/** Ảnh mờ/tối: hỏi cô chụp lại hay vẫn dùng. Không chặn các ảnh khác trong lúc chờ. */
+function askKeep(el, q, preview) {
+  const why = [q.dark ? 'hơi tối' : '', q.blurry ? 'có vẻ bị mờ (rung tay hoặc chưa lấy nét)' : ''].filter(Boolean).join(' và ');
+  el.className = 'thumb warn';
+  el.innerHTML = `${preview ? `<img src="${preview}" alt="">` : ''}
+    <div class="wtext"><b>Ảnh ${why}.</b> AI dễ đọc sai, nên chụp lại.
+      <div class="row"><button type="button" class="danger" data-a="drop">Bỏ, chụp lại</button>
+      <button type="button" data-a="keep">Vẫn tải lên</button></div></div>`;
+  return new Promise((resolve) => {
+    el.querySelector('[data-a="drop"]').onclick = () => resolve(false);
+    el.querySelector('[data-a="keep"]').onclick = () => resolve(true);
+  });
+}
+
+/** mode: 'replace' (ảnh đầu tiên được tải lên thay đáp án cũ) hoặc 'add' (thêm trang đáp án). */
+function handleFiles(input, kind, mode) {
+  const files = Array.from(input.files || []); input.value = '';
+  if (!S.sesId) return toast('Chọn hoặc tạo buổi trước', true);
+  const sesId = S.sesId, label = kind === 'key' ? 'Đáp án · ' : '';
+  const batch = { replaceNext: kind === 'key' && mode !== 'add' };
+  U.pending += files.length; uploadSummary();
+
+  const finish = (el, err) => {
+    if (err) { el.className = 'thumb err'; el.querySelector('span').textContent = 'Lỗi: ' + errMsg(err); U.failed++; }
+    U.pending--; uploadSummary();
+  };
+  const upload = (el, img) => {
+    el.className = 'thumb';
+    el.innerHTML = `${img.preview ? `<img src="${img.preview}" alt="">` : ''}<span>${label}đang tải lên...</span>`;
+    const replaceKey = batch.replaceNext; batch.replaceNext = false;
+    uploading = uploading.then(async () => {
+      try {
+        const saved = await run('uploadImage', sesId, img.b64, img.mime, kind, replaceKey);
+        U.saved++;
+        el.remove();  // ảnh đã lưu chuyển xuống mục "Ảnh trong buổi này"
+        if (V.sesId === sesId) {
+          if (replaceKey) V.files = V.files.filter((x) => x.kind !== 'key');
+          V.files.push({ id: saved.id, name: saved.name, url: saved.url, kind: kind === 'key' ? 'key' : 'photo', graded: false });
+          if (img.preview) V.thumbs[saved.id] = img.preview;
+          sortFiles(); renderGallery();
+        }
+        const s = S.sessions.find((x) => x.id === sesId);
+        if (s) { if (kind === 'key') s.hasKey = true; else s.photos++; }
+        if (s && sesId === S.sesId) {
+          $('sesInfo').textContent = `${s.photos} ảnh bài làm · ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}`;
+          if (kind === 'key') $('keyStatus').textContent = 'Đã có ảnh đáp án.';
+        }
+        finish(el);
+      } catch (e) { finish(el, e); }
+    });
+  };
+
+  files.forEach((file) => {
+    const el = document.createElement('div'); el.className = 'thumb';
+    el.innerHTML = `<span>${label}đang xử lý...</span>`;
+    $('queue').prepend(el);
+    processing = processing.then(async () => {  // thu nhỏ từng ảnh một cho đỡ nặng máy
+      let img;
+      try { img = await toJpegB64(file, 2000, 0.85); } catch (e) { return finish(el, e); }
+      const q = img.quality;
+      if (q && (q.dark || q.blurry)) {
+        askKeep(el, q, img.preview).then((keep) => {
+          if (keep) upload(el, img);
+          else { el.remove(); U.pending--; uploadSummary(); }
+        });
+      } else {
+        upload(el, img);
+      }
+    });
+  });
+}
+$('keyCam').onchange = (e) => handleFiles(e.target, 'key', 'replace');
+$('keyPick').onchange = (e) => handleFiles(e.target, 'key', 'replace');
+$('keyAdd').onchange = (e) => handleFiles(e.target, 'key', 'add');
+$('photoCam').onchange = (e) => handleFiles(e.target, 'photo');
+$('photoPick').onchange = (e) => handleFiles(e.target, 'photo');
+
+// ---------- ảnh trong buổi: xem to, xóa ảnh chụp nhầm ----------
+const V = { sesId: '', files: [], thumbs: {}, images: {}, imageOrder: [], idx: -1 };
+
+function sortFiles() {
+  V.files.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : (a.kind === 'key' ? -1 : 1)));
+}
+function fileLabel(f) { return f.kind === 'key' ? 'Đáp án' : (f.graded ? 'Đã chấm' : 'Chưa chấm'); }
+
+async function loadFileList() {
+  const sesId = S.sesId;
+  const files = await run('listFiles', sesId);
+  if (sesId !== S.sesId) return false;
+  V.sesId = sesId; V.files = files; sortFiles();
+  return true;
+}
+
+async function loadGallery() {
+  $('gallery').innerHTML = ''; $('galleryCount').textContent = '';
+  if (!S.sesId) return;
+  const sesId = S.sesId;
+  try {
+    if (!(await loadFileList())) return;
+    renderGallery();
+    const need = V.files.filter((f) => !(f.id in V.thumbs)).map((f) => f.id);
+    for (let i = 0; i < need.length; i += 6) {  // ảnh thu nhỏ tải từng đợt 6 ảnh
+      const got = await run('getThumbs', need.slice(i, i + 6));
+      got.forEach((t) => { V.thumbs[t.id] = t.src; });
+      if (sesId !== S.sesId) return;
+      renderGallery();
+    }
+  } catch (e) { toast('Không tải được danh sách ảnh: ' + errMsg(e), true); }
+}
+
+function renderGallery() {
+  const photos = V.files.filter((f) => f.kind === 'photo').length;
+  $('galleryCount').textContent = `· ${photos} ảnh bài, ${V.files.length - photos} ảnh đáp án`;
+  $('gallery').innerHTML = V.files.map((f, i) => `<button type="button" class="thumb" data-i="${i}">
+      ${V.thumbs[f.id] ? `<img src="${V.thumbs[f.id]}" alt="">` : `<div class="ph">${esc(f.name)}</div>`}
+      <span class="${f.kind === 'key' ? 'k' : (f.graded ? 'ok' : '')}">${fileLabel(f)}</span></button>`).join('');
+  $('gallery').querySelectorAll('button.thumb').forEach((b) => (b.onclick = () => openViewer(+b.dataset.i)));
+}
+
+function openViewer(i) {
+  V.idx = i; $('viewer').hidden = false; document.body.style.overflow = 'hidden'; showViewerImage();
+}
+async function openViewerById(id) {
+  if (V.sesId !== S.sesId || !V.files.some((f) => f.id === id)) {
+    try { await loadFileList(); } catch (e) { return toast(errMsg(e), true); }
+  }
+  const i = V.files.findIndex((f) => f.id === id);
+  if (i < 0) return toast('Ảnh này không còn trong buổi (có thể đã bị xóa)', true);
+  openViewer(i);
+}
+function closeViewer() { $('viewer').hidden = true; document.body.style.overflow = ''; resetDel(); }
+
+function keepImage(id, src) {  // chỉ giữ 4 ảnh to gần nhất cho nhẹ máy
+  V.images[id] = src; V.imageOrder = V.imageOrder.filter((x) => x !== id).concat(id);
+  while (V.imageOrder.length > 4) delete V.images[V.imageOrder.shift()];
+}
+
+async function showViewerImage() {
+  const f = V.files[V.idx];
+  if (!f) return closeViewer();
+  $('vName').textContent = `${V.idx + 1}/${V.files.length} · ${fileLabel(f)} · ${f.name}`;
+  $('vPrev').disabled = V.idx === 0; $('vNext').disabled = V.idx === V.files.length - 1;
+  resetDel();
+  const img = $('vImg');
+  $('vImgWrap').classList.remove('zoom');
+  img.onerror = null; img.onload = null;
+  img.src = V.thumbs[f.id] || '';
+  $('vMsg').textContent = 'Đang tải ảnh...';
+  try {
+    if (!V.images[f.id]) keepImage(f.id, (await run('getImage', f.id)).src);
+    if (V.files[V.idx] !== f) return;  // cô đã chuyển sang ảnh khác
+    img.onload = () => { $('vMsg').textContent = 'Chạm vào ảnh để phóng to / thu nhỏ'; };
+    img.onerror = () => {
+      img.onerror = null; img.src = V.thumbs[f.id] || '';
+      $('vMsg').innerHTML = `Máy này không hiện được ảnh gốc (HEIC), đang xem ảnh nhỏ.
+        <a href="${f.url}" target="_blank" style="color:#fff">Mở trong Drive</a>`;
+    };
+    img.src = V.images[f.id];
+  } catch (e) { $('vMsg').textContent = 'Không tải được ảnh: ' + errMsg(e); }
+}
+
+let delArmed = null;
+function resetDel() {
+  clearTimeout(delArmed); delArmed = null;
+  $('vDel').textContent = 'Xóa ảnh này'; $('vDel').disabled = false;
+}
+async function deleteCurrent() {
+  if (S.busy) return toast('Đang chấm bài, xóa ảnh sau khi chấm xong', true);
+  if (!delArmed) {  // bấm 2 lần mới xóa, tránh xóa nhầm
+    $('vDel').textContent = 'Bấm lần nữa để xóa';
+    delArmed = setTimeout(resetDel, 4000);
+    return;
+  }
+  clearTimeout(delArmed); delArmed = null;
+  const f = V.files[V.idx], sesId = V.sesId;
+  $('vDel').disabled = true; $('vDel').textContent = 'Đang xóa...';
+  try {
+    await flushSave();  // lưu bảng đang sửa trước, vì xóa ảnh đã chấm sẽ lập lại bảng
+    const r = await run('deleteFile', sesId, f.id);
+    V.files = V.files.filter((x) => x.id !== f.id); delete V.thumbs[f.id]; delete V.images[f.id];
+    toast('Đã chuyển ảnh vào Thùng rác Drive (khôi phục được trong 30 ngày)');
+    renderGallery();
+    const s = S.sessions.find((x) => x.id === sesId);
+    if (s) {
+      if (f.kind === 'photo') s.photos = Math.max(0, s.photos - 1);
+      else s.hasKey = V.files.some((x) => x.kind === 'key');
+      if (sesId === S.sesId) $('sesInfo').textContent = `${s.photos} ảnh bài làm · ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}`;
+    }
+    if (sesId === S.sesId && (r.rebuilt || f.kind === 'key' || !$('tab-grade').hidden)) {
+      const tableOpen = !!$('tableBox').innerHTML;
+      await renderGradeTop();
+      if (tableOpen && S.table) renderTable();
+    }
+    if (!V.files.length) return closeViewer();
+    V.idx = Math.min(V.idx, V.files.length - 1); showViewerImage();
+  } catch (e) { toast('Xóa lỗi: ' + errMsg(e), true); resetDel(); }
+}
+
+$('vClose').onclick = closeViewer;
+$('vPrev').onclick = () => { if (V.idx > 0) { V.idx--; showViewerImage(); } };
+$('vNext').onclick = () => { if (V.idx < V.files.length - 1) { V.idx++; showViewerImage(); } };
+$('vDel').onclick = deleteCurrent;
+$('vImg').onclick = () => $('vImgWrap').classList.toggle('zoom');
+let touchX = null;  // vuốt trái/phải để chuyển ảnh
+$('vImgWrap').addEventListener('touchstart', (e) => { touchX = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
+$('vImgWrap').addEventListener('touchend', (e) => {
+  if (touchX === null || $('vImgWrap').classList.contains('zoom')) return;
+  const dx = e.changedTouches[0].clientX - touchX; touchX = null;
+  if (dx > 60) $('vPrev').click(); else if (dx < -60) $('vNext').click();
+});
+
+// ---------- grading ----------
+// Kết quả chấm lưu trong folder buổi (ket_qua_cham.json): lần sau chỉ chấm ảnh mới,
+// và máy nào mở cũng thấy cùng kết quả.
+function sameIds(a, b) { return a.slice().sort().join(',') === b.slice().sort().join(','); }
+function partsSummary(key) { return key.parts.map((p) => `${p.items.length} ${p.unit}`).join(', '); }
+function keyListHtml(key) {
+  return key.parts.map((p) => `<b>${esc(p.part)}</b><ol class="keylist">${
+    p.items.map((it) => `<li>${esc(it.en)} : ${esc(it.vi)}</li>`).join('')}</ol>`).join('');
+}
+
+async function renderGradeTop() {
+  const top = $('gradeTop');
+  if (!S.sesId) { top.innerHTML = 'Chọn buổi trước.'; return; }
+  if (S.busy) return;
+  top.innerHTML = 'Đang tải thông tin buổi...';
+  try {
+    S.info = await run('getSessionInfo', S.sesId);
+  } catch (e) { top.innerHTML = ''; return toast(errMsg(e), true); }
+  $('rosterList').innerHTML = S.info.roster.map((n) => `<option value="${esc(n)}">`).join('');
+  const st = S.info.state || {}, graded = st.results || {}, ignored = st.ignored || [];
+  S.key = st.key || null; S.table = st.table || null; S.ignoredAdd = [];
+  S.exported = st.exportedAt ? { at: st.exportedAt, sheetUrl: S.info.sheetUrl } : null;
+  S.dirty = !!(st.exportedAtMs && st.tableUpdatedAt && st.tableUpdatedAt > st.exportedAtMs);
+  S.gradable = S.info.photos.filter((p) => !ignored.includes(p.id));
+  S.newPhotos = S.gradable.filter((p) => !graded[p.id]);
+  const keyChanged = !!S.key && !sameIds(st.keyFileIds || [], S.info.keys.map((k) => k.id));
+
+  let action;
+  if (!S.info.keys.length) {
+    action = '<p style="color:var(--red)">Chưa có ảnh đáp án. Tải key lên ở tab Chụp bài.</p>';
+  } else if (!S.key) {
+    action = `<div class="row"><button id="readKey" class="primary" type="button" ${S.gradable.length ? '' : 'disabled'}>
+      Bước 1: đọc đáp án</button></div>`;
+  } else if (keyChanged) {
+    action = `<div class="alert bad">Ảnh đáp án đã được thay sau lần chấm trước. Nên đọc đáp án mới và chấm lại tất cả.
+      <div class="row"><button id="readKey" class="primary" type="button">Đọc đáp án mới, chấm lại tất cả</button>
+      ${S.newPhotos.length ? `<button id="gradeNewOldKey" type="button">Vẫn dùng đáp án cũ, chấm ${S.newPhotos.length} ảnh mới</button>` : ''}
+      </div></div>`;
+  } else {
+    action = `<div class="row">
+      ${S.newPhotos.length ? `<button id="gradeNew" class="primary" type="button">Chấm ${S.newPhotos.length} ảnh mới</button>` : ''}
+      ${S.table ? `<button id="openTable" type="button" class="${S.newPhotos.length ? '' : 'primary'}">Xem / sửa bảng chấm</button>` : ''}
+      </div>
+      <details style="margin-top:8px"><summary>Đáp án đang dùng: ${esc(partsSummary(S.key))}</summary>${keyListHtml(S.key)}
+        <p><button id="readKey" type="button">Đọc lại đáp án và chấm lại tất cả</button></p></details>`;
+  }
+  top.innerHTML = `
+    <p><b>${esc(S.info.className)} · ${esc(S.info.label)}</b> - ${S.gradable.length} ảnh bài làm:
+      ${S.gradable.length - S.newPhotos.length} đã chấm, <b>${S.newPhotos.length} ảnh mới</b> ·
+      ${S.info.roster.length} học sinh trong danh sách</p>
+    <p id="keyInfo" class="muted">Đang kiểm tra key Gemini...</p>
+    ${S.info.sheetUrl ? `<p>Đã xuất file chấm${st.exportedAt ? ' lúc ' + esc(st.exportedAt) : ''}:
+      <a href="${S.info.sheetUrl}" target="_blank">mở file Sheet</a>
+      ${S.dirty ? ' · <span class="dirty">bảng có chỉnh sửa chưa xuất lại</span>' : ''}</p>` : ''}
+    ${action}`;
+  if ($('readKey')) $('readKey').onclick = readKey;
+  if ($('gradeNew')) $('gradeNew').onclick = () => gradePhotos(S.newPhotos, false);
+  if ($('gradeNewOldKey')) $('gradeNewOldKey').onclick = async () => {
+    await run('saveKey', S.sesId, S.key, false); gradePhotos(S.newPhotos, false);
+  };
+  if ($('openTable')) $('openTable').onclick = renderTable;
+  showKeyStatus();
+}
+
+async function showKeyStatus() {
+  try {
+    const keys = await run('keyStatus');
+    const free = keys.filter((k) => !k.paid), ready = free.filter((k) => k.ok).length;
+    $('keyInfo').innerHTML = `Key miễn phí: <b>${ready}/${free.length} sẵn sàng</b>` +
+      keys.filter((k) => !k.ok || k.paid).map((k) => ` · ${esc(k.label)}: ${esc(k.note)}`).join('');
+  } catch (e) { if ($('keyInfo')) $('keyInfo').textContent = 'Không kiểm tra được key: ' + errMsg(e); }
+}
+
+async function readKey() {
+  $('keyBox').innerHTML = '<p>Đang đọc đáp án...</p>'; $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
+  S.cost = 0; S.freeCalls = 0;
+  try {
+    S.key = await run('readKey', S.sesId);
+    track(S.key);
+  } catch (e) { $('keyBox').innerHTML = ''; return toast(errMsg(e), true); }
+  renderKey();
+}
+
+/** The key Gemini read, editable: the teacher fixes or removes items before grading. */
+const PARTS = ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP', 'QUY TẮC TRỌNG ÂM'];
+const UNITS = { 'TỪ VỰNG': 'từ', 'QUY TẮC TRỌNG ÂM': 'quy tắc' };
+function renderKey() {
+  S.key.parts = S.key.parts.filter((p) => p.items.length);
+  const total = S.key.parts.reduce((n, p) => n + p.items.filter((it) => String(it.en).trim()).length, 0);
+  $('keyBox').innerHTML = `
+    <h2>Đáp án AI đọc được: ${esc(S.key.topic)}</h2>
+    <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(' · ')}</b> - tổng ${total} mục.
+      Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa.</p>
+    <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${esc(p.part)}</h2>${
+      p.items.map((it, ii) => `<div class="row" style="margin-bottom:6px">
+        <input value="${esc(it.en)}" data-p="${pi}" data-i="${ii}" data-f="en" style="flex:2" placeholder="tiếng Anh / công thức">
+        <input value="${esc(it.vi)}" data-p="${pi}" data-i="${ii}" data-f="vi" style="flex:3" placeholder="nghĩa / tên">
+        <button class="del" data-p="${pi}" data-i="${ii}" type="button">Xóa</button></div>`).join('')}
+      <button class="addItem" data-p="${pi}" type="button">+ Thêm mục ${esc(p.part.toLowerCase())}</button>`).join('')}
+      <div class="row" style="margin-top:10px">
+        <select id="newPart">${PARTS.filter((n) => !S.key.parts.some((p) => p.part === n)).map((n) => `<option>${n}</option>`).join('')}</select>
+        <button id="addPart" type="button">+ Thêm phần</button></div></details>
+    <div class="row" style="margin-top:10px">
+      <button id="goGrade" class="primary" type="button" ${total ? '' : 'disabled'}>Đúng, chấm ${S.gradable.length} bài</button>
+      <button id="badKey" type="button">Sai đáp án, tải lại key</button>
+    </div>`;
+  $('keyBox').querySelectorAll('input[data-f]').forEach((el) => (el.oninput = () => {
+    S.key.parts[+el.dataset.p].items[+el.dataset.i][el.dataset.f] = el.value;
+    $('goGrade').disabled = !S.key.parts.some((p) => p.items.some((it) => String(it.en).trim()));
+  }));
+  const reopen = () => { renderKey(); $('keyBox').querySelector('details').open = true; };
+  $('keyBox').querySelectorAll('button.del').forEach((b) => (b.onclick = () => {
+    S.key.parts[+b.dataset.p].items.splice(+b.dataset.i, 1); reopen();
+  }));
+  $('keyBox').querySelectorAll('button.addItem').forEach((b) => (b.onclick = () => {
+    S.key.parts[+b.dataset.p].items.push({ en: '', vi: '' }); reopen();
+  }));
+  if ($('addPart')) $('addPart').onclick = () => {
+    const part = $('newPart').value; if (!part) return;
+    S.key.parts.push({ part, unit: UNITS[part] || 'công thức', items: [{ en: '', vi: '' }] });
+    S.key.parts.sort((a, b) => PARTS.indexOf(a.part) - PARTS.indexOf(b.part)); reopen();
+  };
+  $('goGrade').onclick = async () => {
+    $('goGrade').disabled = true;
+    const parts = S.key.parts.map((p) => ({ part: p.part, unit: p.unit,
+      items: p.items.filter((it) => String(it.en).trim()) })).filter((p) => p.items.length);  // bỏ mục để trống
+    S.key.parts = parts;
+    try { await run('saveKey', S.sesId, { topic: S.key.topic, parts }, true); }
+    catch (e) { $('goGrade').disabled = false; return toast(errMsg(e), true); }
+    $('keyBox').innerHTML = '';
+    gradePhotos(S.gradable, true);
+  };
+  $('badKey').onclick = () => { $('keyBox').innerHTML = ''; showTab('upload'); };
+}
+
+function askContinue(message) {
+  return new Promise((resolve) => {
+    $('alertBox').innerHTML = `<div class="alert bad">${message}<div class="row">
+      <button id="stopBtn" class="primary" type="button">Dừng lại</button>
+      <button id="goOnBtn" type="button">Vẫn chấm tiếp</button></div></div>`;
+    $('stopBtn').onclick = () => { $('alertBox').innerHTML = ''; resolve(false); };
+    $('goOnBtn').onclick = () => { $('alertBox').innerHTML = ''; resolve(true); };
+  });
+}
+
+/** Grade the given photos one by one (each result is saved on the server), then rebuild the table. */
+function setBusy(busy) {
+  S.busy = busy;
+  $('cls').disabled = busy; $('ses').disabled = busy;  // không cho đổi lớp/buổi khi đang chấm
+  $('gradeTop').querySelectorAll('button').forEach((b) => (b.disabled = busy));
+}
+
+async function gradePhotos(photos, checkMatch) {
+  const sesId = S.sesId, keyParts = S.key.parts, roster = S.info.roster;  // cố định buổi đang chấm
+  await flushSave();
+  setBusy(true);
+  $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
+  S.cost = S.cost || 0;
+  let lastKey = (S.key && S.key.keyLabel) || '', done = 0, failed = 0;
+  const matches = [];
+  for (let i = 0; i < photos.length; i++) {
+    const p = photos[i];
+    $('progress').innerHTML = `<p>Đang chấm ảnh ${i + 1}/${photos.length} (${esc(p.name)})${lastKey ? ' · đang dùng key ' + esc(lastKey) : ''}<br>
+      <span class="muted">${costText()} · Giữ màn hình sáng, đừng chuyển app. Lỡ tắt thì mở lại và bấm "Chấm ảnh mới":
+      ảnh đã chấm được lưu rồi.</span></p>
+      <div class="bar"><i style="width:${Math.round(i / photos.length * 100)}%"></i></div>`;
+    try {
+      const r = await run('gradePhoto', sesId, p.id, keyParts, roster);
+      track(r); lastKey = r.keyLabel || lastKey; done++; matches.push(r.keyMatches);
+    } catch (e) {
+      const msg = errMsg(e);
+      if (msg.includes('Không còn key nào')) {  // every key is out: stop instead of failing each photo
+        failed += photos.length - i; toast(msg, true); break;
+      }
+      failed++;
+    }
+    if (checkMatch && matches.length === 2) {
+      checkMatch = false;
+      if (matches.every((m) => !m)) {
+        const go = await askContinue('Hai bài đầu tiên <b>không khớp với đáp án</b> (có thể đáp án của buổi hoặc lớp khác). Cô kiểm tra lại key trước khi chấm tiếp.');
+        if (!go) { $('progress').innerHTML = ''; setBusy(false); return renderGradeTop(); }
+      }
+    }
+  }
+  $('progress').innerHTML = `<p>Đã chấm ${done} ảnh${failed ? `, <b>${failed} ảnh chưa chấm được</b> (bấm "Chấm ảnh mới" để thử lại)` : ''}.
+    ${costText()}</p>`;
+  try {
+    await run('buildTable', sesId);
+  } catch (e) { toast('Lỗi khi lập bảng: ' + errMsg(e), true); }
+  setBusy(false);
+  await renderGradeTop();
+  if (S.table) renderTable();
+  if (V.sesId === sesId) loadFileList().then((ok) => ok && renderGallery()).catch(() => {});  // cập nhật nhãn "Đã chấm"
+}
+
+// ---------- review table ----------
+function renderTable() {
+  const t = S.table, cols = t.columns;
+  $('tableBox').innerHTML = `
+    <h2>Bảng chấm - cô duyệt và sửa trực tiếp <span id="saveState" class="muted"></span></h2>
+    <p class="muted">Sửa thẳng vào ô, tự lưu. <b>Cam</b> = nên xem lại, <b>xám</b> = không có bài (chọn Vắng / Không có bài).
+      Chép phạt là đề xuất theo luật chung. Chốt xong bấm nút xuất ở đáy màn hình; xuất rồi vẫn sửa và xuất lại được.</p>
+    <div class="tablewrap"><table class="review"><thead><tr><th>Học sinh</th>${cols.map((c) =>
+      `<th class="${c === 'TỪ VIẾT SAI' ? '' : (c === 'CHÉP PHẠT' ? 'pen' : 'score')}">${esc(c)}</th>`).join('')}<th>Ghi chú</th><th class="delcell"></th></tr></thead>
+    <tbody>${t.rows.map((r, i) => rowHtml(r, i, cols)).join('')}</tbody></table></div>
+    <p class="row" style="margin-top:10px"><button id="addRow" type="button">+ Thêm dòng</button></p>`;
+  renderExportBox();
+  $('tableBox').querySelectorAll('textarea').forEach(autoGrow);
+  $('tableBox').querySelectorAll('[data-r]').forEach((el) => (el.oninput = onCellInput));
+  $('tableBox').querySelectorAll('[data-pen]').forEach((el) => (el.onchange = onPenaltySelect));
+  $('tableBox').querySelectorAll('[data-c="__name"]').forEach((el) => (el.onchange = onNameChange));
+  $('tableBox').querySelectorAll('[data-view]').forEach((a) => (a.onclick = (e) => {
+    e.preventDefault(); openViewerById(a.dataset.view);
+  }));
+  $('tableBox').querySelectorAll('.del').forEach((b) => (b.onclick = () => {
+    const row = t.rows[+b.dataset.del];
+    (row.photos || []).forEach((p) => p.id && S.ignoredAdd.push(p.id));  // xóa dòng có ảnh: không chấm lại ảnh đó
+    t.rows.splice(+b.dataset.del, 1); markEdited(); renderTable(); saveTableSoon(0);
+  }));
+  $('addRow').onclick = () => {
+    t.rows.push({ name: '', values: {}, notes: '', photos: [], status: 'added' }); markEdited(); renderTable(); saveTableSoon(0);
+  };
+}
+
+/** Nút xuất: lần đầu "Chốt và xuất", đã xuất thì "Xuất lại" kèm cảnh báo khi bảng đã sửa sau lần xuất. */
+function renderExportBox() {
+  const ex = S.exported;
+  $('exportBox').innerHTML = `
+    ${ex && ex.at ? `<p>Đã xuất lúc ${esc(ex.at)}:
+      ${ex.sheetUrl ? `<a href="${ex.sheetUrl}" target="_blank">mở file Sheet</a>` : ''}
+      ${ex.imageUrl ? ` · <a href="${ex.imageUrl}" target="_blank">xem ảnh bảng chấm</a>` : ''}
+      ${S.dirty ? '<br><span class="dirty">Bảng đã sửa sau lần xuất này. Bấm "Xuất lại" để cập nhật file Sheet và ảnh.</span>' : ''}</p>` : ''}
+    <div class="row"><button id="exportBtn" class="primary" type="button">
+      ${ex && ex.at ? 'Xuất lại (cập nhật file Sheet + ảnh)' : 'Chốt và xuất file Sheet + ảnh vào folder buổi'}</button></div>`;
+  $('exportBtn').onclick = exportSession;
+}
+
+function markEdited() {
+  if (S.exported && !S.dirty) { S.dirty = true; renderExportBox(); }
+}
+
+function rowHtml(r, i, cols) {
+  const cls = r.status === 'missing' ? 'missing' : (r.flag ? 'review' : '');
+  const links = (r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}">ảnh ${k + 1}</a>`).join('');
+  const cell = (c, ci) => {
+    if (ci === 0 && r.status === 'missing') return absentSelect(r, i, c);
+    if (c === 'CHÉP PHẠT') return penaltyCell(r, i, c);
+    return `<textarea rows="1" data-r="${i}" data-c="${esc(c)}">${esc((r.values || {})[c])}</textarea>`;
+  };
+  // data-label: tên cột, hiện phía trên ô khi bảng chuyển thành thẻ trên điện thoại
+  return `<tr class="${cls}">
+    <td class="namecell" data-label="Học sinh"><input list="rosterList" value="${esc(r.name)}" data-r="${i}" data-c="__name" placeholder="Chọn tên">
+        <div class="links">${links}</div></td>
+    ${cols.map((c, ci) => `<td class="${c === 'TỪ VIẾT SAI' ? 'wrong' : (c === 'CHÉP PHẠT' ? 'pen half' : 'score half')}"
+        data-label="${ci === 0 && r.status === 'missing' ? 'Không có ảnh bài' : esc(c)}">${cell(c, ci)}</td>`).join('')}
+    <td class="notes" data-label="Ghi chú"><textarea rows="2" data-r="${i}" data-c="__notes">${esc(r.notes)}</textarea></td>
+    <td class="delcell"><button class="del" data-del="${i}" type="button" title="Xóa dòng">Xóa dòng</button></td></tr>`;
+}
+
+const PENALTY_OPTIONS = ['từ viết sai x10 lần', 'từ viết sai x15 lần', 'từ mới x10 lần', 'từ mới x15 lần',
+                         'toàn bộ x10 lần', 'toàn bộ x15 lần'];
+
+/** Chép phạt: chọn 1 trong các mức chuẩn (dữ liệu đồng nhất để sau này theo dõi), hoặc "Khác" để tự gõ. */
+function penaltyCell(r, i, c) {
+  const cur = String((r.values || {})[c] || ''), std = cur === '' || PENALTY_OPTIONS.includes(cur);
+  return `<select class="penSel" data-pen="${i}" data-c="${esc(c)}">
+      <option value="" ${cur === '' ? 'selected' : ''}>Không phạt</option>
+      ${PENALTY_OPTIONS.map((o) => `<option value="${esc(o)}" ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+      <option value="__custom" ${std ? '' : 'selected'}>Khác (tự gõ)...</option>
+    </select>
+    <textarea rows="1" class="penText" data-r="${i}" data-c="${esc(c)}" placeholder="Gõ mức chép phạt" ${std ? 'hidden' : ''}>${std ? '' : esc(cur)}</textarea>`;
+}
+
+function onPenaltySelect(e) {
+  const sel = e.target, row = S.table.rows[+sel.dataset.pen], c = sel.dataset.c;
+  const text = sel.parentNode.querySelector('.penText');
+  row.values = row.values || {};
+  if (sel.value === '__custom') {
+    text.hidden = false; text.focus();
+    row.values[c] = text.value;
+  } else {
+    text.hidden = true; text.value = '';
+    row.values[c] = sel.value;
+  }
+  if (row.flag) { row.flag = false; sel.closest('tr').classList.remove('review'); }
+  markEdited(); saveTableSoon(0);
+}
+
+/** Em không có ảnh bài: để trống, "Vắng" hoặc "Không có bài" (giữ cả chữ cũ như "đi muộn" nếu có). */
+function absentSelect(r, i, c) {
+  const cur = String((r.values || {})[c] || ''), opts = ['', 'Vắng', 'Không có bài'];
+  if (cur && !opts.includes(cur)) opts.push(cur);
+  return `<select data-r="${i}" data-c="${esc(c)}">${opts.map((o) =>
+    `<option value="${esc(o)}" ${o === cur ? 'selected' : ''}>${o ? esc(o) : '(để trống)'}</option>`).join('')}</select>`;
+}
+
+/** Ô chữ cao vừa đủ nội dung, không bị cắt chữ. */
+function autoGrow(el) {
+  if (el.hidden || !el.offsetParent) return;  // ô đang ẩn (tab khác): đo lại khi mở tab
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
+}
+
+function onCellInput(e) {
+  if (e.target.tagName === 'TEXTAREA') autoGrow(e.target);
+  const row = S.table.rows[+e.target.dataset.r], c = e.target.dataset.c;
+  if (c === '__name') row.name = e.target.value;
+  else if (c === '__notes') row.notes = e.target.value;
+  else { row.values = row.values || {}; row.values[c] = e.target.value; }
+  if (row.flag) { row.flag = false; e.target.closest('tr').classList.remove('review'); }  // cô đã xem dòng này
+  markEdited();
+  saveTableSoon(e.target.tagName === 'SELECT' ? 0 : 2000);
+}
+
+/** Cô chọn tên cho một ảnh: bỏ dòng "không có ảnh" trống của cùng em đó để khỏi trùng tên. */
+function onNameChange(e) {
+  const i = +e.target.dataset.r, name = e.target.value.trim();
+  if (!name) return;
+  const dup = S.table.rows.findIndex((r, k) => k !== i && String(r.name).trim() === name && r.status === 'missing' &&
+    !Object.values(r.values || {}).some((v) => String(v).trim()));
+  if (dup >= 0) { S.table.rows.splice(dup, 1); markEdited(); renderTable(); saveTableSoon(0); }
+}
+
+function tablePayload(t) {
+  t = t || S.table;
+  return { title: t.title, columns: t.columns, rows: t.rows.map((r) => ({
+    name: r.name, values: r.values || {}, notes: r.notes || '', photos: r.photos || [],
+    status: r.status || '', flag: !!r.flag, ai: r.ai || null })) };  // ai: đề xuất gốc, để so với mức cô chốt
+}
+
+// Autosave: the pending save remembers which session/table it belongs to, so switching session never
+// writes one session's table into another.
+let saveTimer = null, pendingSave = null;
+function saveTableSoon(delay) {
+  clearTimeout(saveTimer);
+  pendingSave = { sesId: S.sesId, table: S.table };
+  if ($('saveState')) $('saveState').textContent = '· đang lưu...';
+  saveTimer = setTimeout(flushSave, delay);
+}
+async function flushSave() {
+  clearTimeout(saveTimer); saveTimer = null;
+  const job = pendingSave; pendingSave = null;
+  if (!job || !job.table) return;
+  const ignored = S.ignoredAdd.splice(0);
+  try {
+    await run('saveTable', job.sesId, tablePayload(job.table), ignored);
+    if ($('saveState') && job.sesId === S.sesId) $('saveState').textContent = '· đã lưu';
+  } catch (e) {
+    S.ignoredAdd.push(...ignored);
+    if ($('saveState')) $('saveState').textContent = '· CHƯA LƯU ĐƯỢC';
+    toast('Chưa lưu được bảng: ' + errMsg(e), true);
+  }
+}
+
+// ---------- export ----------
+async function exportSession() {
+  const t = S.table;
+  const unnamed = t.rows.filter((r) => !String(r.name).trim() && r.status !== 'missing');
+  if (unnamed.length) return toast('Còn ' + unnamed.length + ' dòng chưa có tên. Chọn tên hoặc xóa dòng đó.', true);
+  const seen = {}, dups = [];
+  t.rows.forEach((r) => { const n = String(r.name).trim(); if (seen[n] && !dups.includes(n)) dups.push(n); seen[n] = true; });
+  if (dups.length) return toast('Trùng tên: ' + dups.join(', ') + '. Xóa dòng thừa hoặc sửa tên trước khi xuất.', true);
+  $('exportBtn').disabled = true; $('exportBtn').textContent = 'Đang xuất...';
+  try {
+    const cols = t.columns;
+    $('exportCanvas').innerHTML = `<table>
+      <tr><td style="border:none"></td><td class="title" colspan="${cols.length}">${esc(t.title)}</td></tr>
+      <tr><th class="date" style="text-align:right">${esc(S.info.label)}</th>${cols.map((c) => `<th class="${c === 'CHÉP PHẠT' ? 'pen' : ''}">${esc(c)}</th>`).join('')}</tr>
+      ${t.rows.map((r) => `<tr><td>${esc(r.name)}</td>${cols.map((c) =>
+        `<td class="${c === 'TỪ VIẾT SAI' ? 'red' : ''}">${esc((r.values || {})[c])}</td>`).join('')}</tr>`).join('')}
+    </table>`;
+    const node = $('exportCanvas');
+    node.style.display = 'block'; window.scrollTo(0, 0);
+    let canvas;
+    try {
+      canvas = await html2canvas(node, { scale: 2, backgroundColor: '#ffffff', scrollX: 0, scrollY: 0,
+        windowWidth: Math.max(document.documentElement.clientWidth, node.scrollWidth + 24) });
+    } finally { node.style.display = 'none'; }
+    const png = canvas.toDataURL('image/png').split(',')[1];
+    clearTimeout(saveTimer); pendingSave = null;
+    const ignored = S.ignoredAdd.splice(0);
+    let res;
+    try {
+      res = await run('exportSession', S.sesId, tablePayload(), png, ignored);
+    } catch (e) { S.ignoredAdd.push(...ignored); throw e; }
+    if ($('saveState')) $('saveState').textContent = '· đã lưu';
+    S.exported = { at: res.exportedAt, sheetUrl: res.sheetUrl, imageUrl: res.imageUrl }; S.dirty = false;
+    renderExportBox();
+    toast(`Đã xuất vào folder ${S.info.className} / ${S.info.label}. Muốn sửa thì sửa bảng rồi bấm Xuất lại.`);
+    const s = S.sessions.find((x) => x.id === S.sesId); if (s) s.sheetUrl = res.sheetUrl;
+  } catch (e) {
+    toast('Xuất lỗi: ' + errMsg(e), true);
+    renderExportBox();
+  }
+}
+
+loadClasses();
+</script>
+</body>
+</html>

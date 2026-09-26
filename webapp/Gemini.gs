@@ -1,0 +1,241 @@
+/**
+ * Gemini request builders and response parsers (pure - the HTTP call itself is in Code.gs).
+ * Tested with Node in test/gemini_live.js.
+ */
+
+var PART_NAMES = ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP', 'QUY TẮC TRỌNG ÂM'];
+
+var KEY_PROMPT = [
+  'Ảnh là ĐÁP ÁN bài tập tiếng Anh của cô giáo (một hoặc nhiều ảnh). Hãy chép lại đáp án thành danh sách.',
+  '- Chép mọi dòng có nội dung đáp án thành mục (bỏ ngày tháng, "NEW WORDS").',
+  '  numbered = true nếu dòng đó trên ảnh BẮT ĐẦU bằng số thứ tự ("1.", "2)"...) hoặc gạch đầu dòng/chấm tròn;',
+  '  numbered = false nếu dòng không có số thứ tự (thường là tiêu đề, ví dụ "Preposition: giới từ (of place)",',
+  '  "Tobe + giới từ"). Nhìn kỹ đầu mỗi dòng trước khi quyết định.',
+  '- Chú thích trong ngoặc không phải mục riêng: "bên cạnh ( = by )" thì by KHÔNG phải một mục;',
+  '  "(n)", "(v)", phiên âm như "/e/", "/i:/" cũng bỏ.',
+  '- Chia theo phần: TỪ VỰNG (từ: nghĩa), CÔNG THỨC / CẤU TRÚC (công thức ngữ pháp, ví dụ HTĐ: S + V(s/es)),',
+  '  CÂU GIÁN TIẾP, QUY TẮC TRỌNG ÂM.',
+  '- TỪ VỰNG: mỗi từ/cụm tiếng Anh là 1 mục, en = từ tiếng Anh (bỏ (n), (v), (adj)), vi = nghĩa tiếng Việt.',
+  '  Dòng "A = B : nghĩa" tách thành 2 mục A và B cùng nghĩa, cùng numbered. Ví dụ "Next to = beside : bên cạnh" -> 2 mục.',
+  '- Phần khác: mỗi công thức/quy tắc là 1 mục, en = nội dung công thức/quy tắc, vi = tên hoặc giải thích.',
+  '- topic: tóm tắt chủ đề bài trong vài chữ (ví dụ "giới từ chỉ vị trí").'
+].join('\n');
+
+var GRADE_PROMPT = [
+  'Bạn đọc bài làm viết tay của MỘT học sinh Việt Nam (ảnh đính kèm) và so với đáp án bên dưới.',
+  '',
+  'BƯỚC 1 - CHÉP LẠI từng dòng học sinh viết, ĐÚNG TỪNG CHỮ CÁI như trên giấy.',
+  'TUYỆT ĐỐI KHÔNG tự sửa lỗi chính tả: em viết "bellow" thì chép "bellow", không phải "below".',
+  'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại.',
+  'Chỗ nào có tẩy xóa hoặc khó đọc mà ảnh hưởng tới kết quả thì ghi vào unclear (ví dụ "inside: chữ ngoài có thể bị gạch").',
+  '',
+  'BƯỚC 2 - GHÉP với đáp án. vocab: đúng 1 phần tử cho MỖI mục TỪ VỰNG của đáp án, theo đúng thứ tự.',
+  'Dòng dạng "A = B : nghĩa" nghĩa là A và B DÙNG CHUNG nghĩa cuối dòng: "next to = Besind : bên cạnh"',
+  'thì next to có written_en "next to", beside có written_en "Besind", cả hai written_vi "bên cạnh".',
+  'Chữ tiếng Anh em viết (kể cả viết sai) KHÔNG BAO GIỜ là nghĩa tiếng Việt. Mục em không viết: written_en rỗng.',
+  '',
+  'BƯỚC 3 - CHẤM NGHĨA: meaning_ok = true nếu nghĩa tiếng Việt em viết đúng nghĩa của mục (không cần giống',
+  'chữ đáp án, lỗi dấu nhỏ không sao). Thiếu nghĩa hoặc sai nghĩa là false.',
+  'KHÔNG chấm chính tả tiếng Anh - chương trình tự làm.',
+  'other_word = true chỉ khi em thay hẳn bằng một từ tiếng Anh có thật mang nghĩa khác, do hiểu sai từ',
+  '(ví dụ "site" thay "side" trong outside/inside/beside). Viết sai chữ cái mà không thành từ có thật',
+  '("Besind", "Behinh"), hoặc viết nhầm một chữ do nét chữ ("For from" thay "far from") thì là false.',
+  '',
+  'CÁC PHẦN KHÁC (công thức, câu gián tiếp, quy tắc trọng âm): others có đúng 1 phần tử cho mỗi mục,',
+  'correct = true nếu em viết đúng đủ thành phần, đúng thứ tự, đúng dạng động từ. Sai một thành phần là sai.',
+  '',
+  'TÊN: written_name = tên ghi trên giấy, nguyên văn. matched_name = tên trong DANH SÁCH LỚP ứng với tên đó',
+  '(tên viết tắt như "K.Vy", "LQMai", chỉ tên cuối vẫn ghép được); không chắc thì để rỗng.',
+  'key_matches = false nếu bài làm rõ ràng là chủ đề khác đáp án (bài của buổi hoặc lớp khác).'
+].join('\n');
+
+function keySchema_() {
+  return {
+    type: 'OBJECT',
+    properties: {
+      topic: {type: 'STRING'},
+      parts: {type: 'ARRAY', items: {
+        type: 'OBJECT',
+        properties: {
+          part: {type: 'STRING', format: 'enum', 'enum': PART_NAMES},
+          items: {type: 'ARRAY', items: {
+            type: 'OBJECT',
+            properties: {en: {type: 'STRING'}, vi: {type: 'STRING'}, numbered: {type: 'BOOLEAN'}},
+            required: ['en', 'vi', 'numbered']
+          }}
+        },
+        required: ['part', 'items']
+      }}
+    },
+    required: ['topic', 'parts']
+  };
+}
+
+function gradeSchema_() {
+  return {
+    type: 'OBJECT',
+    properties: {
+      written_name: {type: 'STRING'},
+      matched_name: {type: 'STRING'},
+      key_matches: {type: 'BOOLEAN'},
+      vocab: {type: 'ARRAY', items: {
+        type: 'OBJECT',
+        properties: {
+          key_en: {type: 'STRING'}, written_en: {type: 'STRING'}, written_vi: {type: 'STRING'},
+          meaning_ok: {type: 'BOOLEAN'}, other_word: {type: 'BOOLEAN'}
+        },
+        required: ['key_en', 'written_en', 'written_vi', 'meaning_ok', 'other_word']
+      }},
+      others: {type: 'ARRAY', items: {
+        type: 'OBJECT',
+        properties: {
+          part: {type: 'STRING'}, key_text: {type: 'STRING'}, written: {type: 'STRING'},
+          correct: {type: 'BOOLEAN'}, note: {type: 'STRING'}
+        },
+        required: ['part', 'key_text', 'written', 'correct']
+      }},
+      unclear: {type: 'ARRAY', items: {type: 'STRING'}}
+    },
+    required: ['written_name', 'matched_name', 'key_matches', 'vocab', 'others', 'unclear']
+  };
+}
+
+function imagePart_(img) {
+  return {inlineData: {mimeType: img.mime, data: img.b64}};
+}
+
+/** keyImages: [{mime, b64}] */
+function buildKeyRequest(keyImages) {
+  return {
+    contents: [{role: 'user', parts: [{text: KEY_PROMPT}].concat(keyImages.map(imagePart_))}],
+    generationConfig: {responseMimeType: 'application/json', responseSchema: keySchema_(), temperature: 0}
+  };
+}
+
+function buildGradeRequest(keyParts, roster, photo) {
+  var key = keyParts.map(function (p) {
+    return '[' + p.part + ']\n' + p.items.map(function (it, i) {
+      return (i + 1) + '. ' + it.en + ' : ' + it.vi;
+    }).join('\n');
+  }).join('\n\n');
+  var text = GRADE_PROMPT + '\n\nĐÁP ÁN:\n' + key + '\n\nDANH SÁCH LỚP:\n' + roster.join(', ');
+  return {
+    contents: [{role: 'user', parts: [{text: text}, imagePart_(photo)]}],
+    generationConfig: {responseMimeType: 'application/json', responseSchema: gradeSchema_(), temperature: 0}
+  };
+}
+
+/**
+ * Decide what to do with a key after a failed call.
+ *  daily   - out of today's quota (or billing/model unavailable): skip until quotas reset (midnight Pacific)
+ *  minute  - per-minute limit: rest for retrySec, try the next key now
+ *  bad_key - key invalid/revoked: skip for today
+ *  retry   - Google-side hiccup: try the next key, keep this one
+ *  fatal   - the request itself is wrong: stop, other keys would fail the same way
+ */
+function classifyGeminiError(status, json) {
+  var err = (json && json.error) || {}, text = JSON.stringify(err), details = err.details || [];
+  var reason = details.map(function (d) { return d.reason || ''; }).join(' ');
+  var quotaIds = [];
+  details.forEach(function (d) { (d.violations || []).forEach(function (v) { quotaIds.push(v.quotaId || ''); }); });
+  var retry = details.filter(function (d) { return d.retryDelay; })[0];
+  var retrySec = retry ? Math.ceil(parseFloat(retry.retryDelay)) : 60;
+
+  if (status === 429) {
+    return quotaIds.some(function (q) { return /PerDay/i.test(q); })
+      ? {kind: 'daily', reason: 'hết hạn mức hôm nay'}
+      : {kind: 'minute', reason: 'quá số lượt mỗi phút', retrySec: retrySec};
+  }
+  if (status === 402) return {kind: 'daily', reason: 'hết tiền trả trước'};
+  if (status === 401 || status === 403 || /API_KEY_INVALID|API key not valid|API key expired/i.test(reason + text)) {
+    return {kind: 'bad_key', reason: 'key không hợp lệ hoặc bị khóa'};
+  }
+  if (status === 404) return {kind: 'daily', reason: 'key không dùng được mô hình này'};
+  if (status >= 500) return {kind: 'retry', reason: 'Google đang lỗi (' + status + ')'};
+  return {kind: 'fatal', reason: 'Gemini lỗi ' + status + ': ' + (err.message || '')};
+}
+
+/** Returns {data, inputTokens, outputTokens}. Throws a readable error if Gemini refused. */
+function parseGeminiResponse(json) {
+  if (json.error) throw new Error('Gemini lỗi ' + json.error.code + ': ' + json.error.message);
+  var c = (json.candidates || [])[0];
+  if (!c || !c.content) {
+    var why = (json.promptFeedback && json.promptFeedback.blockReason) || (c && c.finishReason) || 'không có kết quả';
+    throw new Error('Gemini không trả kết quả (' + why + ')');
+  }
+  var text = c.content.parts.map(function (p) { return p.text || ''; }).join('');
+  var u = json.usageMetadata || {}, data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Gemini trả kết quả bị cắt hoặc sai định dạng (' + (c.finishReason || '?') + '), thử chấm lại ảnh này');
+  }
+  return {
+    data: data,
+    inputTokens: u.promptTokenCount || 0,
+    outputTokens: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)
+  };
+}
+
+/**
+ * Clean up the key Gemini read: merge repeated parts, add units, drop empty items.
+ * If the key has a numbered list, lines without a number are headings and are dropped
+ * (done here, not by the prompt, because the model does not follow that rule reliably).
+ */
+function normalizeKey(data) {
+  var byPart = {}, order = [];
+  var anyNumbered = (data.parts || []).some(function (p) {
+    return (p.items || []).some(function (it) { return it.numbered === true; });
+  });
+  (data.parts || []).forEach(function (p) {
+    var name = PART_NAMES.indexOf(p.part) >= 0 ? p.part : 'CÔNG THỨC';
+    if (!byPart[name]) { byPart[name] = []; order.push(name); }
+    (p.items || []).forEach(function (it) {
+      if (anyNumbered && it.numbered !== true) return;
+      if (String(it.en || '').trim()) byPart[name].push({en: String(it.en).trim(), vi: String(it.vi || '').trim()});
+    });
+  });
+  order.sort(function (a, b) { return PART_NAMES.indexOf(a) - PART_NAMES.indexOf(b); });
+  return {
+    topic: data.topic || '',
+    parts: order.filter(function (n) { return byPart[n].length; })
+      .map(function (n) { return {part: n, unit: unitFor(n), items: byPart[n]}; })
+  };
+}
+
+/**
+ * Align Gemini's grading to the key (one entry per key item, in key order) and match the name.
+ * Returns the per-photo result used by assembleSession.
+ */
+function normalizeGrade(data, keyParts, roster) {
+  var vocabKey = [], others = [];
+  keyParts.forEach(function (p) {
+    if (p.part === VOCAB) vocabKey = p.items;
+  });
+  var got = {};
+  (data.vocab || []).forEach(function (it) { got[normKey_(it.key_en)] = got[normKey_(it.key_en)] || it; });
+  var vocab = vocabKey.map(function (k, i) {
+    var it = got[normKey_(k.en)] || (data.vocab || [])[i] || {};
+    return {key_en: k.en, written_en: it.written_en || '', written_vi: it.written_vi || '',
+            meaning_ok: !!it.meaning_ok, other_word: !!it.other_word};
+  });
+  keyParts.forEach(function (p) {
+    if (p.part === VOCAB) return;
+    var mine = (data.others || []).filter(function (o) { return normKey_(o.part) === normKey_(p.part); });
+    p.items.forEach(function (k, i) {
+      var o = mine.filter(function (x) { return normKey_(x.key_text) === normKey_(k.en); })[0] || mine[i] || {};
+      others.push({part: p.part, key_text: k.en, written: o.written || '', correct: !!o.correct, note: o.note || ''});
+    });
+  });
+  var matched = matchName(data.written_name, roster);
+  if (!matched && roster.indexOf(data.matched_name) >= 0) matched = data.matched_name;
+  var empty = vocab.filter(function (v) { return !String(v.written_en).trim(); }).length;
+  return {
+    writtenName: data.written_name || '',
+    matchedName: matched,
+    keyMatches: data.key_matches !== false && !(vocab.length && empty / vocab.length >= 0.7),
+    vocab: vocab,
+    others: others,
+    unclear: data.unclear || []
+  };
+}

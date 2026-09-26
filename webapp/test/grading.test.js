@@ -1,0 +1,212 @@
+// Run: node --test webapp/test
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const G = require('./load')();
+
+// data/ (ảnh, kết quả đã duyệt của học sinh) không có trên GitHub: các test dùng nó tự bỏ qua khi thiếu.
+const DATA = path.join(__dirname, '..', '..', 'data', 'TA6', '22-9');
+const HAS_DATA = fs.existsSync(path.join(DATA, 'result.json'));
+// Danh sách lớp giả (không dùng tên học sinh thật), giữ đủ các kiểu tên dễ nhầm khi ghép.
+const ROSTER = ['Khánh Vy', 'Vân Anh', 'Đức Minh', 'Ngọc Hà', 'Hải Nam', 'Hà My', 'Phương Linh',
+  'Trâm Oanh', 'Quỳnh Như', 'Ng Quỳnh Mai', 'Gia Bách', 'Lê Q.Mai', 'Tú Linh', 'Mạnh Quân', 'Khánh Mai',
+  'Phương Nhi', 'Minh Hằng', 'Quốc Việt', 'Minh Khôi'];
+const PENALTY = {
+  default: {
+    counted_columns: ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP'],
+    levels: [{ min_wrong: 2, penalty: 'từ viết sai x10 lần' }, { min_wrong: 5, penalty: 'từ mới x15 lần' }],
+    separate_columns: { 'QUY TẮC TRỌNG ÂM': [{ min_wrong: 3, penalty: 'quy tắc trọng âm x7 lần' }] },
+  },
+  classes: { 'TA8.1': { levels: [{ min_wrong: 2, penalty: 'từ viết sai x10 lần' },
+                                 { min_wrong: 5, penalty: 'toàn bộ x10 lần' }] } },
+};
+const plain = (x) => JSON.parse(JSON.stringify(x));  // objects from the vm context -> plain objects
+const wrongOf = (verdicts) => verdicts.filter((v) => v.verdict === 'wrong').map((v) => v.key_en).sort();
+const item = (key_en, written_en, meaning_ok = true, other_word = false) =>
+  ({ key_en, written_en, written_vi: 'x', meaning_ok, other_word });
+
+test('letterErrors counts letters, ignores spaces/case/hyphens', () => {
+  assert.equal(G.letterErrors('basind', 'beside'), 3);
+  assert.equal(G.letterErrors('Besind', 'beside'), 2);
+  assert.equal(G.letterErrors('Be hinh', 'behind'), 1);
+  assert.equal(G.letterErrors('For from', 'far from'), 1);
+  assert.equal(G.letterErrors('in side', 'inside'), 0);
+  assert.equal(G.letterErrors('well-known For', 'well-known for'), 0);
+  assert.equal(G.letterErrors('opposiet', 'opposite'), 1);  // swapped neighbours
+});
+
+for (const photo of ['IMG_7451', 'IMG_7466']) {
+  test(`decideVocab matches the teacher-verified result for ${photo}`, { skip: !HAS_DATA && 'không có data/' }, () => {
+    const fixture = JSON.parse(fs.readFileSync(path.join(DATA, 'gemini', photo + '.json'), 'utf8'));
+    const truth = JSON.parse(fs.readFileSync(path.join(DATA, 'result.json'), 'utf8'))
+      .students.find((s) => (s.photos || []).includes(photo)).parts['TỪ VỰNG'];
+    assert.deepEqual(wrongOf(G.decideVocab(fixture.items)), [...truth.wrong].sort());
+  });
+}
+
+test('one light error is forgiven, a second one is not', () => {
+  const v = plain(G.decideVocab([item('far from', 'For from'), item('below', 'Belove'), item('behind', 'behind')]));
+  assert.equal(v[0].verdict, 'forgiven');
+  assert.equal(v[1].verdict, 'wrong');  // 2 letters
+  const two = plain(G.decideVocab([item('in front of', 'in fron of'), item('opposite', 'Opposide')]));
+  assert.deepEqual(two.map((x) => x.verdict), ['forgiven', 'wrong']);
+});
+
+test('the same slip repeated in several items is forgiven everywhere', () => {
+  const v = plain(G.decideVocab([item('ceiling', 'ceilling'), item('ceiling fan', 'ceilling fan')]));
+  assert.deepEqual(v.map((x) => x.verdict), ['forgiven', 'forgiven']);
+});
+
+test('forgiveness goes to an item whose meaning is right', () => {
+  const v = plain(G.decideVocab([item('opposite', 'Opposide', false), item('in front of', 'In fron of')]));
+  assert.deepEqual(v.map((x) => x.verdict), ['wrong', 'forgiven']);
+});
+
+test('a different real word (site for side) is never forgiven', () => {
+  const v = plain(G.decideVocab([item('outside', 'Out Site', true, true), item('inside', 'IN Site', true, true),
+    item('in front of', 'in fron of')]));
+  assert.deepEqual(v.map((x) => x.verdict), ['wrong', 'wrong', 'forgiven']);
+});
+
+test('names written on the paper match the roster', () => {
+  const cases = { KVY: 'Khánh Vy', 'V.Anh': 'Vân Anh', HMy: 'Hà My', 'PLinh': 'Phương Linh',
+    'QNhư': 'Quỳnh Như', LQMai: 'Lê Q.Mai', 'K.Mai': 'Khánh Mai', 'Nhi': 'Phương Nhi', 'M.Hằng': 'Minh Hằng',
+    'Q.Việt': 'Quốc Việt', 'M.Khôi': 'Minh Khôi', 'Ng Quỳnh Mai': 'Ng Quỳnh Mai', 'Tú Linh': 'Tú Linh',
+    'Đức Minh': 'Đức Minh', 'M.Hà': '' };
+  for (const [written, expected] of Object.entries(cases)) {
+    assert.equal(G.matchName(written, ROSTER), expected, written);
+  }
+  assert.equal(G.matchName('Mai', ROSTER), '');  // ambiguous: Khánh Mai, Ng Quỳnh Mai, Lê Q.Mai
+});
+
+test('penalties follow the agreed rules', () => {
+  const p = (wrong, total = 13, cls = 'TA6') => G.penaltyFor({ 'TỪ VỰNG': { correct: total - wrong, total, wrongCount: wrong } }, cls, PENALTY);
+  assert.equal(p(1), '');
+  assert.equal(p(2), 'từ viết sai x10 lần');
+  assert.equal(p(5), 'từ mới x15 lần');
+  assert.equal(p(5, 12, 'TA8.1'), 'toàn bộ x10 lần');
+  assert.equal(G.penaltyFor({ 'TỪ VỰNG': { correct: 11, total: 11, wrongCount: 0 },
+    'QUY TẮC TRỌNG ÂM': { correct: 2, total: 5, wrongCount: 3 } }, 'TA7.2', PENALTY), 'quy tắc trọng âm x7 lần');
+});
+
+test('assembleSession builds rows in roster order with missing and unmatched rows', { skip: !HAS_DATA && 'không có data/' }, () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(DATA, 'gemini', 'IMG_7451.json'), 'utf8'));
+  const truth = JSON.parse(fs.readFileSync(path.join(DATA, 'result.json'), 'utf8'));
+  const keyParts = [{ part: 'TỪ VỰNG', unit: 'từ', items: truth.parts[0].key.map((k) => ({ en: k.en, vi: k.vi })) }];
+  const bao = G.normalizeGrade({ written_name: 'Q.Việt', matched_name: '', key_matches: true,
+    vocab: fixture.items, others: [], unclear: [] }, keyParts, ROSTER);
+  const stray = G.normalizeGrade({ written_name: 'Chi', matched_name: '', key_matches: false,
+    vocab: [], others: [], unclear: [] }, keyParts, ROSTER);
+  const t = plain(G.assembleSession(keyParts, ROSTER,
+    [Object.assign(bao, { fileName: 'a.jpg', url: 'u1' }), Object.assign(stray, { fileName: 'b.jpg', url: 'u2' })],
+    'TA6', PENALTY));
+  assert.deepEqual(t.columns, ['TỪ VỰNG', 'TỪ VIẾT SAI', 'CHÉP PHẠT']);
+  const row = t.rows.find((r) => r.name === 'Quốc Việt');
+  assert.equal(row.values['TỪ VỰNG'], '8/13 từ');
+  assert.equal(row.values['CHÉP PHẠT'], 'từ mới x15 lần');
+  assert.equal(t.rows[0].name, 'Khánh Vy');
+  assert.equal(t.rows[0].status, 'missing');
+  assert.equal(row.flag, false);  // wrong words alone do not need the teacher's attention
+  assert.deepEqual(row.ai, row.values);  // AI's original suggestion is kept next to what the teacher edits
+  assert.deepEqual(t.rows[0].notes, []);  // no-photo row: teacher picks Vắng / Không có bài
+  const last = t.rows[t.rows.length - 1];
+  assert.equal(last.status, 'unmatched');
+  assert.equal(last.flag, true);
+  assert.ok(last.notes.some((n) => n.includes('không khớp đáp án')));
+});
+
+test('normalizeGrade aligns other parts to the key', () => {
+  const keyParts = [{ part: 'CÔNG THỨC', unit: 'công thức', items: [{ en: 'S + V(s/es)', vi: 'HTĐ' }, { en: 'S + am/is/are + V-ing', vi: 'HTTD' }] }];
+  const g = plain(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, vocab: [],
+    others: [{ part: 'CÔNG THỨC', key_text: 'S + am/is/are + V-ing', written: 'S + is + Ving', correct: true },
+             { part: 'CÔNG THỨC', key_text: 'S + V(s/es)', written: 'S + V', correct: false }], unclear: [] }, keyParts, ROSTER));
+  assert.deepEqual(g.others.map((o) => o.correct), [false, true]);
+  assert.equal(g.matchedName, 'Tú Linh');
+});
+
+test('grading more photos later keeps what the teacher already reviewed', () => {
+  const roster = ['An', 'Bình', 'Chi', 'Dũng', 'Em'];
+  const keyParts = [{ part: 'TỪ VỰNG', unit: 'từ', items: [{ en: 'above', vi: 'trên' }, { en: 'below', vi: 'dưới' }] }];
+  const res = (id, name, above, below) => ({ fileId: id, fileName: id + '.jpg', url: 'u/' + id, writtenName: name || '?',
+    matchedName: name, keyMatches: true, others: [], unclear: [],
+    vocab: [{ key_en: 'above', written_en: above, written_vi: 'trên', meaning_ok: true, other_word: false },
+            { key_en: 'below', written_en: below, written_vi: 'dưới', meaning_ok: true, other_word: false }] });
+  const build = (results, prev) => {
+    const t = G.assembleSession(keyParts, roster, G.resultsForTable(results, prev ? G.overridesFromTable(prev) : {}, []),
+                                'TA6', PENALTY);
+    t.rows.forEach((r) => (r.notes = r.notes.join('\n')));
+    return plain(G.mergeTables(prev, t));
+  };
+
+  // day 1: 3 photos, one name not recognised
+  const day1 = { p1: res('p1', 'An', 'above', 'bellow'), p2: res('p2', 'Bình', 'abov', ''), p3: res('p3', '', 'above', 'below') };
+  const t1 = build(day1, null);
+  const row = (t, name) => t.rows.find((r) => r.name === name);
+  // teacher reviews: edits An, names the unknown photo "Chi", writes "đi muộn" for Em
+  row(t1, 'An').values['CHÉP PHẠT'] = 'cô miễn phạt';
+  t1.rows.find((r) => r.status === 'unmatched').name = 'Chi';
+  row(t1, 'Em').values['TỪ VỰNG'] = 'đi muộn';
+
+  // day 2: Dũng's photo and a second page for Bình
+  const day2 = Object.assign({}, day1, { p4: res('p4', 'Dũng', 'above', 'below'), p5: res('p5', 'Bình', 'above', 'below') });
+  const t2 = build(day2, JSON.parse(JSON.stringify(t1)));
+  assert.equal(row(t2, 'An').values['CHÉP PHẠT'], 'cô miễn phạt');          // edit kept
+  assert.equal(row(t2, 'Chi').photos[0].id, 'p3');                          // chosen name kept
+  assert.equal(t2.rows.filter((r) => r.status === 'unmatched').length, 0);
+  assert.equal(row(t2, 'Em').values['TỪ VỰNG'], 'đi muộn');                 // no-photo row kept
+  assert.equal(row(t2, 'Dũng').values['TỪ VỰNG'], '2/2 từ');                // new photo graded
+  assert.equal(row(t2, 'Bình').values['TỪ VỰNG'], '2/2 từ');                // re-graded with both pages
+  assert.ok(row(t2, 'Bình').notes.startsWith('Ảnh của em thay đổi'));
+  assert.equal(row(t2, 'Bình').flag, true);
+  assert.equal(row(t2, 'Chi').status, 'graded');                            // named photo is a normal row now
+
+  // day 3: the teacher deletes An's photo and Bình's second page on the web
+  row(t2, 'Dũng').values['CHÉP PHẠT'] = 'đã sửa';
+  const day3 = Object.assign({}, day2); delete day3.p1; delete day3.p5;
+  const t3 = build(day3, JSON.parse(JSON.stringify(t2)));
+  assert.equal(row(t3, 'An').status, 'missing');                            // no photo left
+  assert.equal(row(t3, 'An').values['CHÉP PHẠT'], undefined);
+  assert.equal(row(t3, 'Bình').photos.length, 1);                            // re-graded from the remaining page
+  assert.equal(row(t3, 'Bình').values['TỪ VỰNG'], '1/2 từ');                   // 'abov' forgiven, below blank
+  assert.equal(row(t3, 'Dũng').values['CHÉP PHẠT'], 'đã sửa');               // untouched rows keep edits
+  assert.equal(t3.rows.length, 5);
+  assert.equal(t2.rows.length, 5);
+});
+
+test('classifyGeminiError decides how to rotate keys', () => {
+  const quota = (quotaId, retryDelay) => ({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'quota', details: [
+    { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId }] },
+    { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay }] } });
+  assert.equal(G.classifyGeminiError(429, quota('GenerateRequestsPerDayPerProjectPerModel-FreeTier', '30s')).kind, 'daily');
+  const m = plain(G.classifyGeminiError(429, quota('GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '37.5s')));
+  assert.deepEqual([m.kind, m.retrySec], ['minute', 38]);
+  assert.equal(G.classifyGeminiError(402, { error: { code: 402, message: 'Your prepayment credits are depleted.' } }).kind, 'daily');
+  assert.equal(G.classifyGeminiError(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.',
+    details: [{ reason: 'API_KEY_INVALID' }] } }).kind, 'bad_key');
+  assert.equal(G.classifyGeminiError(404, { error: { code: 404, message: 'no longer available to new users' } }).kind, 'daily');
+  assert.equal(G.classifyGeminiError(503, { error: { code: 503, message: 'overloaded' } }).kind, 'retry');
+  assert.equal(G.classifyGeminiError(400, { error: { code: 400, message: 'Invalid JSON payload' } }).kind, 'fatal');
+});
+
+test('normalizeKey drops unnumbered heading lines only when the key is numbered', () => {
+  const numbered = plain(G.normalizeKey({ topic: 't', parts: [
+    { part: 'TỪ VỰNG', items: [{ en: 'Preposition', vi: 'giới từ', numbered: false }, { en: 'Behind', vi: 'đằng sau', numbered: true }] },
+    { part: 'CẤU TRÚC', items: [{ en: 'Tobe + giới từ', vi: '', numbered: false }] }] }));
+  assert.deepEqual(numbered.parts.map((p) => [p.part, p.items.map((i) => i.en)]), [['TỪ VỰNG', ['Behind']]]);
+  const plainKey = plain(G.normalizeKey({ topic: 't', parts: [
+    { part: 'TỪ VỰNG', items: [{ en: 'cozy', vi: 'ấm cúng', numbered: false }] }] }));
+  assert.equal(plainKey.parts[0].items.length, 1);  // no numbered list at all: keep every line
+});
+
+test('parseGeminiResponse explains a cut-off answer', () => {
+  assert.throws(() => G.parseGeminiResponse({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"a": [1,' }] } }] }),
+    /bị cắt/);
+});
+
+test('parseSessionDate reads old and new folder names', () => {
+  assert.equal(G.parseSessionDate('NGÀY 19/9', 2026).label, '19/09/26');
+  assert.equal(G.parseSessionDate('ngày 13/9', 2026).sortKey, 20260913);
+  assert.equal(G.parseSessionDate('NGÀY 27/09/26', 2000).sortKey, 20260927);
+  assert.equal(G.parseSessionDate('abc', 2026), null);
+});

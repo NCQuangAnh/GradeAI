@@ -1,0 +1,21 @@
+{
+  "_readme": "Luật chép phạt. 'counted_columns': các cột cộng dồn số từ sai (1 công thức = 1 từ). 'levels': sai từ min_wrong trở lên thì phạt theo penalty ({total} = tổng số từ). 'separate_columns': cột tính phạt riêng. Lớp nào khác mặc định thì ghi đè trong 'classes'.",
+  "default": {
+    "counted_columns": ["TỪ VỰNG", "CÔNG THỨC", "CÂU GIÁN TIẾP", "CẤU TRÚC"],
+    "levels": [
+      {"min_wrong": 2, "penalty": "từ viết sai x10 lần"},
+      {"min_wrong": 5, "penalty": "từ mới x15 lần"}
+    ],
+    "separate_columns": {
+      "QUY TẮC TRỌNG ÂM": [{"min_wrong": 3, "penalty": "quy tắc trọng âm x7 lần"}]
+    }
+  },
+  "classes": {
+    "TA8.1": {
+      "levels": [
+        {"min_wrong": 2, "penalty": "từ viết sai x10 lần"},
+        {"min_wrong": 5, "penalty": "toàn bộ {total} từ x10 lần"}
+      ]
+    }
+  }
+}
