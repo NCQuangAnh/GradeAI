@@ -68,9 +68,19 @@ function requireUser_() {
 
 // ---------- folder lớp / buổi ----------
 
+/** Folder gốc; báo lỗi dễ hiểu khi tài khoản đang dùng chưa được chia sẻ folder. */
+function rootFolder_() {
+  try {
+    return DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
+  } catch (e) {
+    throw new Error('Tài khoản ' + Session.getActiveUser().getEmail() + ' chưa được chia sẻ folder chấm bài ' +
+      '(hoặc ROOT_FOLDER_ID trong Code.gs sai). Nhờ chủ folder chia sẻ quyền Người chỉnh sửa cho tài khoản này.');
+  }
+}
+
 function listClasses() {
   requireUser_();
-  var out = [], it = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID).searchFolders("trashed = false");
+  var out = [], it = rootFolder_().searchFolders("trashed = false");
   while (it.hasNext()) { var f = it.next(); out.push({id: f.getId(), name: f.getName()}); }
   return out.sort(function (a, b) { return a.name.localeCompare(b.name, 'vi', {numeric: true}); });
 }

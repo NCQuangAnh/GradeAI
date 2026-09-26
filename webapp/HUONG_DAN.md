@@ -120,7 +120,7 @@ Thêm/bớt người dùng: sửa `ALLOWED_EMAILS` trong Script Properties (có 
    Đáp án nhiều trang: chọn nhiều ảnh cùng lúc, hoặc chụp trang 1 rồi bấm **+ Thêm trang đáp án**.
 3. **Chụp bài** từng tờ, hoặc **Chọn nhiều ảnh** từ thư viện. Ảnh được thu nhỏ trước khi tải lên.
    Ảnh nào lỗi (thẻ đỏ) thì chụp lại ảnh đó.
-   Ảnh **mờ hoặc tối** được báo ngay (khung cam): bấm **Bỏ, chụp lại** rồi chụp lại, hoặc **Vẫn tải lên** nếu cô thấy vẫn đọc được.
+   Ảnh **mờ hoặc tối** được báo ngay (khung vàng): bấm **Bỏ, chụp lại** rồi chụp lại, hoặc **Vẫn tải lên** nếu cô thấy vẫn đọc được.
    Việc kiểm tra chạy trên điện thoại, không tốn tiền. Trang giấy gần như trắng (em viết rất ít) đôi khi cũng bị báo mờ: cứ bấm Vẫn tải lên.
 4. **Ảnh trong buổi này**: lưới ảnh thu nhỏ của mọi ảnh bài và đáp án (nhãn Đáp án / Đã chấm / Chưa chấm).
    Bấm một ảnh để xem to; chạm vào ảnh để phóng to đọc chữ; vuốt trái/phải hoặc bấm Trước/Sau để chuyển ảnh.
@@ -133,7 +133,7 @@ Thêm/bớt người dùng: sửa `ALLOWED_EMAILS` trong Script Properties (có 
 2. Chờ chấm từng ảnh (vài giây một ảnh). **Giữ màn hình sáng**; lỡ tắt thì mở lại, bấm **Chấm ảnh mới**
    (ảnh đã chấm không mất). Nếu 2 bài đầu không khớp đáp án, web dừng lại hỏi.
 3. Duyệt **bảng chấm**: sửa điểm, từ sai, chép phạt, ghi chú ngay trên bảng.
-   Dòng cam = cần cô xem (chữ gạch xóa, tên chưa ghép được, gộp 2 ảnh, có ảnh mới); sửa một ô trong dòng thì hết cam.
+   Dòng tô vàng = cần cô xem (chữ gạch xóa, tên chưa ghép được, gộp 2 ảnh, có ảnh mới); sửa một ô trong dòng thì hết tô vàng.
    Dòng xám = không có ảnh bài. Ảnh chưa nhận ra tên: chọn tên ở ô đầu, dòng "không có ảnh" trống của em đó tự bỏ.
    Web không cho xuất khi còn dòng chưa có tên hoặc trùng tên.
    Sửa thẳng vào ô: điểm ("12/13 từ"), từ viết sai, ghi chú. Mọi chỉnh sửa tự lưu.

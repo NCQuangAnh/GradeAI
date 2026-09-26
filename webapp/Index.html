@@ -3,57 +3,110 @@
 <head>
 <base target="_top">
 <meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
 <style>
+  /* Màu lấy từ bàn chấm bài: mực tím học trò, bút đỏ của cô, bút dạ vàng, dòng kẻ giấy vở,
+     và màu hồng/vàng của Google Sheet chấm bài của cô. */
   :root {
-    --bg: #f6f5f2; --card: #ffffff; --ink: #1f2328; --muted: #6a6f76; --line: #e2e0da;
-    --accent: #7a3fb0; --accent-ink: #ffffff; --pink: #f0c8f8; --yellow: #ffff00;
-    --review: #fff1e0; --missing: #f2f2f2; --red: #d62222; --ok: #1f7a3a;
+    --paper: #ffffff;          /* nền thẻ */
+    --desk: #f1f4f9;           /* nền trang */
+    --ink: #1e2a44;            /* chữ: mực xanh đen */
+    --muted: #5d6a82;
+    --rule: #cfdaec;           /* dòng kẻ giấy vở: viền, đường kẻ */
+    --rule-soft: #e6ecf6;
+    --violet: #4c2a91;         /* mực tím: hành động chính */
+    --violet-dark: #3a1f72;
+    --violet-soft: #efe9fa;
+    --pen: #c8262f;            /* bút đỏ: từ sai, chép phạt, cảnh báo */
+    --pen-soft: #fcecee;
+    --marker: #fff1a6;         /* bút dạ vàng: chỗ cần xem lại */
+    --marker-soft: #fff8d4;
+    --sheet-pink: #f4daf1;     /* tiêu đề bảng như Sheet của cô */
+    --ok: #2c7a4b;
+    --absent: #f3f5f9;
+    --margin-line: #e9a9ae;    /* lề đỏ của trang vở */
+    /* màu gốc của file Sheet, chỉ dùng cho ảnh bảng chấm xuất ra */
+    --x-pink: #f0c8f8; --x-yellow: #ffff00; --x-red: #e02020;
+    --radius: 14px; --radius-sm: 10px;
+    --focus: 0 0 0 3px rgba(76, 42, 145, .28);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
-           padding: 14px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
-  header h1 { font-size: 18px; margin: 0; }
-  header small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 80px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-  h2 { font-size: 16px; margin: 14px 0 8px; }
+  body { margin: 0; background: var(--desk); color: var(--ink);
+         font: 16px/1.5 "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--violet); }
+
+  /* đầu trang = đầu một trang vở: dòng kẻ xanh, lề đỏ, tên viết tay */
+  header.nb { background-color: var(--paper);
+    background-image: repeating-linear-gradient(180deg, transparent 0, transparent 27px, var(--rule-soft) 27px, var(--rule-soft) 28px);
+    border-bottom: 1px solid var(--rule); }
+  /* lề đỏ đi theo nội dung (không dạt ra mép màn hình rộng) */
+  header.nb .nb-in::before { content: ""; position: absolute; top: 0; bottom: 0; left: 38px; width: 2px; background: var(--margin-line); }
+  header.nb .nb-in { position: relative; max-width: 1100px; margin: 0 auto; padding: 10px 16px 8px 56px;
+                     display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; min-height: 84px; }
+  header.nb h1 { margin: 0; font: 400 38px/1 "Patrick Hand", "Be Vietnam Pro", cursive; color: var(--violet); }
+  header.nb .who { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                   padding-bottom: 4px; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 14px 16px 96px; }
+  .card { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 18px 0 8px; letter-spacing: -.01em; }
   h2:first-child { margin-top: 0; }
-  label.field { display: block; margin-bottom: 10px; font-weight: 600; font-size: 14px; }
-  select, input, textarea { font: inherit; font-size: 16px; width: 100%; padding: 9px 10px;
-                            border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+  label.field { display: block; margin-bottom: 12px; font-weight: 600; font-size: 14px; }
+  label.field select { margin-top: 4px; }
+  select, input, textarea { font: inherit; font-size: 16px; width: 100%; padding: 10px 12px; border: 1px solid var(--rule);
+                            border-radius: var(--radius-sm); background: var(--paper); color: var(--ink); }
+  select:focus, input:focus, textarea:focus { outline: none; border-color: var(--violet); box-shadow: var(--focus); }
+  select:disabled { background: var(--absent); color: var(--muted); }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .row > * { flex: 1 1 auto; }
-  button, .btn { font: inherit; font-size: 15px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--line);
-                 background: #fff; color: var(--ink); cursor: pointer; text-align: center; display: inline-block; }
-  button.primary, .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-  button:disabled { opacity: .5; cursor: default; }
+  button, .btn { font: inherit; font-size: 15px; font-weight: 600; padding: 11px 14px; border-radius: var(--radius-sm);
+                 border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer;
+                 text-align: center; display: inline-block; transition: background-color .15s, border-color .15s; }
+  button:hover, .btn:hover { background: #f6f8fc; border-color: #b8c7e0; }
+  button:active, .btn:active { transform: translateY(1px); }
+  button:focus-visible, .btn:focus-within, summary:focus-visible, a:focus-visible { outline: none; box-shadow: var(--focus); }
+  button.primary, .btn.primary { background: var(--violet); border-color: var(--violet); color: #fff; }
+  button.primary:hover, .btn.primary:hover { background: var(--violet-dark); border-color: var(--violet-dark); }
+  button.danger { background: var(--pen); border-color: var(--pen); color: #fff; }
+  button.danger:hover { background: #a91f27; border-color: #a91f27; }
+  button:disabled { opacity: .45; cursor: default; transform: none; }
   .muted { color: var(--muted); font-size: 14px; }
-  details summary { cursor: pointer; color: var(--accent); font-weight: 600; margin: 4px 0; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-  .tabs button { flex: 1; font-weight: 600; }
-  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }
-  .thumb { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: #eee; aspect-ratio: 3/4; }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .thumb span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 12px; padding: 3px 5px; background: rgba(0,0,0,.6); color: #fff; }
-  .thumb.err span { background: var(--red); }
+  details summary { cursor: pointer; color: var(--violet); font-weight: 600; margin: 4px 0; border-radius: 6px; }
+  .dirty { color: var(--pen); font-weight: 600; }
+  #saveState { margin-left: 8px; font-size: 13px; font-weight: 500; }
+
+  /* tab: gạch chân mực tím như đánh dấu trong vở */
+  .tabs { display: flex; gap: 4px; margin: 4px 0 14px; border-bottom: 1px solid var(--rule); }
+  .tabs button { flex: 1; border: none; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: transparent;
+                 color: var(--muted); padding: 12px 10px 10px; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tabs button:hover { background: var(--violet-soft); }
+  .tabs button.on { color: var(--violet); border-bottom-color: var(--violet); background: transparent; }
+
+  /* ảnh bài: như tờ giấy đặt trên bàn */
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 12px; }
+  .thumb { position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--rule);
+           background: var(--absent); aspect-ratio: 3/4; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb span { position: absolute; left: 6px; bottom: 6px; font-size: 12px; font-weight: 600; padding: 2px 8px;
+                border-radius: 999px; background: rgba(30, 42, 68, .82); color: #fff; }
+  .thumb.err span { background: var(--pen); }
   button.thumb { padding: 0; cursor: pointer; display: block; }
+  button.thumb:hover { border-color: var(--violet); }
   .thumb .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-               padding: 6px; font-size: 11px; color: var(--muted); word-break: break-all; text-align: center; }
-  .thumb span.k { background: var(--accent); }
+               padding: 6px; font-size: 11px; font-weight: 400; color: var(--muted); word-break: break-all; text-align: center; }
+  .thumb span.k { background: var(--violet); }
   .thumb span.ok { background: var(--ok); }
-  button.danger { background: var(--red); border-color: var(--red); color: #fff; }
-  .thumb.warn { grid-column: 1 / -1; aspect-ratio: auto; display: flex; gap: 10px; align-items: center;
-                padding: 8px; background: var(--review); border-color: #f0c48a; }
-  .thumb.warn img { width: 72px; height: 96px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; }
-  .thumb.warn .wtext { font-size: 13px; line-height: 1.35; }
-  .thumb.warn .row { margin-top: 6px; }
-  .thumb.warn button { font-size: 13px; padding: 7px 10px; }
-  .dirty { color: var(--red); font-weight: 600; }
+  .thumb.warn { grid-column: 1 / -1; aspect-ratio: auto; display: flex; gap: 12px; align-items: center;
+                padding: 10px; background: var(--marker-soft); border-color: #e7d57a; }
+  .thumb.warn img { width: 72px; height: 96px; object-fit: cover; border-radius: 8px; flex: 0 0 auto; }
+  .thumb.warn .wtext { font-size: 14px; line-height: 1.4; }
+  .thumb.warn .row { margin-top: 8px; }
+  .thumb.warn button { font-size: 14px; padding: 8px 12px; }
+
   /* xem ảnh to */
-  .viewer { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: #111; }
+  .viewer { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: #000; }
   .viewer[hidden] { display: none; }
   .vbar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; color: #fff; }
   .vbar #vName { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -62,48 +115,65 @@
   .vimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
   .vimg.zoom { display: block; }
   .vimg.zoom img { max-width: none; max-height: none; width: 220%; }
-  #vMsg { color: #ccc; font-size: 13px; text-align: center; margin: 4px 12px; min-height: 18px; }
-  .alert { border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--review); border: 1px solid #f0c48a; }
-  .alert.bad { background: #fde8e8; border-color: #f2a3a3; }
-  .alert .row { margin-top: 8px; }
-  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0; }
-  .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
-  .keylist { font-size: 14px; margin: 6px 0 10px; padding-left: 20px; }
-  .tablewrap { overflow-x: auto; margin: 10px -14px 0; padding: 0 14px; }
+  #vMsg { color: #c9ced8; font-size: 13px; text-align: center; margin: 4px 12px; min-height: 18px; }
+
+  /* thông báo: vàng = cần xem, đỏ = lỗi */
+  .alert { border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; background: var(--marker-soft);
+           border: 1px solid #e7d57a; font-size: 15px; }
+  .alert.bad { background: var(--pen-soft); border-color: #eab0b4; }
+  .alert.bad b { color: var(--pen); }
+  .alert .row { margin-top: 10px; }
+  .bar { height: 8px; background: var(--rule-soft); border-radius: 999px; overflow: hidden; margin: 10px 0; }
+  .bar i { display: block; height: 100%; background: var(--violet); width: 0; transition: width .3s; }
+  .keylist { font-size: 14px; margin: 6px 0 10px; padding-left: 22px; }
+
   /* bảng chấm: máy tính = bảng, điện thoại (<= 720px) = mỗi em một thẻ */
-  table.review { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 14px; }
-  table.review th { background: var(--pink); padding: 6px; border: 1px solid var(--line); text-align: left; }
-  table.review td { border: 1px solid var(--line); padding: 4px; vertical-align: top; background: #fff; }
+  .tablewrap { overflow-x: auto; margin: 10px -16px 0; padding: 0 16px; }
+  table.review { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 980px; font-size: 14px;
+                 border: 1px solid var(--rule); border-radius: var(--radius-sm); overflow: hidden; }
+  table.review th { background: var(--sheet-pink); padding: 8px; border-bottom: 1px solid var(--rule); text-align: left;
+                    font-weight: 600; font-size: 13px; }
+  table.review td { border-bottom: 1px solid var(--rule-soft); padding: 6px; vertical-align: top; background: var(--paper); }
+  table.review tr:last-child td { border-bottom: none; }
   table.review td:first-child, table.review th:first-child { position: sticky; left: 0; z-index: 1; min-width: 160px; }
-  table.review tr.missing td { background: var(--missing); }
-  table.review tr.review td { background: var(--review); }
-  table.review input, table.review textarea, table.review select { font-size: 14px; padding: 6px; }
-  table.review textarea { min-height: 38px; resize: vertical; }
-  table.review .wrong textarea { color: var(--red); }
-  table.review .links a { font-size: 13px; margin-right: 8px; display: inline-block; padding: 4px 0; }
-  table.review td.notes textarea { min-width: 260px; }
+  table.review tr.missing td { background: var(--absent); }
+  table.review tr.review td { background: var(--marker-soft); }
+  table.review input, table.review textarea, table.review select { font-size: 14px; padding: 7px 9px; }
+  table.review textarea { min-height: 38px; resize: vertical; overflow: hidden; }  /* ô tự giãn (autoGrow) */
+  table.review .wrong textarea { color: var(--pen); }
   table.review .penSel { min-width: 170px; }
   table.review .penText { margin-top: 4px; }
-  table.review textarea { overflow: hidden; }  /* ô tự giãn theo nội dung (autoGrow) */
-  #exportBox { position: sticky; bottom: 0; z-index: 3; background: var(--card); padding: 10px 0 4px;
-               border-top: 1px solid var(--line); margin-top: 8px; }
+  table.review .links a { font-size: 13px; font-weight: 600; margin-right: 10px; display: inline-block; padding: 4px 0; }
+  table.review td.notes textarea { min-width: 260px; color: var(--muted); }
+  table.review td.namecell input { font-weight: 600; }
+  .del { border: none; background: none; color: var(--muted); padding: 4px 8px; font-size: 13px; font-weight: 500; }
+  .del:hover { color: var(--pen); background: var(--pen-soft); }
+
+  #exportBox { position: sticky; bottom: 0; z-index: 3; background: var(--paper); padding: 12px 0 6px;
+               border-top: 1px solid var(--rule); margin-top: 10px; box-shadow: 0 -8px 16px -12px rgba(30, 42, 68, .25); }
   #exportBox p { margin: 0 0 8px; font-size: 14px; }
   #exportBox:empty { display: none; }
-  @media (min-width: 1000px) { main { max-width: 1240px; } }
+
+  @media (min-width: 1000px) { main, header.nb .nb-in { max-width: 1240px; } }
   @media (min-width: 721px) {
     table.review th.score { width: 120px; }
     table.review th.pen { width: 200px; }
-    table.review th.delcell { width: 80px; }
+    table.review th.delcell { width: 90px; }
     #exportBox .row button { flex: 0 1 auto; min-width: 380px; }
+    /* máy tính: nút vừa chữ, không kéo dài hết hàng */
+    .row > button, .row > .btn { flex: 0 1 auto; min-width: 200px; }
+    .pick { display: grid; grid-template-columns: minmax(180px, 1fr) 2fr; gap: 16px; }
   }
   @media (max-width: 720px) {
+    header.nb .nb-in { min-height: 76px; padding-left: 52px; }
+    header.nb h1 { font-size: 34px; }
     .tablewrap { overflow: visible; margin: 10px 0 0; padding: 0; }
-    table.review { min-width: 0; }
+    table.review { min-width: 0; border: none; border-radius: 0; overflow: visible; }
     table.review thead { display: none; }
     table.review, table.review tbody, table.review td { display: block; width: 100%; }
     /* thẻ 2 cột: điểm và chép phạt nằm cạnh nhau, còn lại chiếm cả hàng */
-    table.review tr { display: grid; grid-template-columns: minmax(96px, 34%) 1fr; border: 1px solid var(--line); border-radius: 12px;
-                      margin-bottom: 12px; overflow: hidden; background: #fff; }
+    table.review tr { display: grid; grid-template-columns: minmax(96px, 34%) 1fr; border: 1px solid var(--rule);
+                      border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; background: var(--paper); }
     table.review td { grid-column: 1 / -1; order: 3; }
     table.review td.namecell { order: 0; }
     table.review td.half { grid-column: auto; }
@@ -111,13 +181,13 @@
     table.review td.pen { order: 2; }
     table.review td.notes { order: 4; }
     table.review td.delcell { order: 5; }
-    table.review td, table.review td:first-child { position: static; border: none; border-bottom: 1px solid var(--line);
+    table.review td, table.review td:first-child { position: static; border: none; border-bottom: 1px solid var(--rule-soft);
                                                    padding: 8px 12px; min-width: 0; }
+    table.review tr:last-child td { border-bottom: 1px solid var(--rule-soft); }
     table.review td::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600;
                               color: var(--muted); margin-bottom: 4px; }
     table.review td.delcell { border-bottom: none; text-align: right; padding: 2px 8px; }
     table.review td.delcell::before { display: none; }
-    table.review td.namecell input { font-weight: 700; }
     table.review td.notes textarea { min-width: 0; }
     table.review input, table.review textarea, table.review select { font-size: 16px; }  /* 16px: iPhone không tự phóng to */
     table.review .penSel { min-width: 0; }
@@ -125,28 +195,33 @@
     table.review tr.missing td:not(.namecell):not(:nth-child(2)):not(.delcell) { display: none; }
     table.review tr.missing td:nth-child(2) { grid-column: 1 / -1; }
   }
-  .del { border: none; background: none; color: var(--muted); padding: 2px 6px; font-size: 13px; }
-  #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto; padding: 12px 14px;
-           border-radius: 10px; background: var(--ink); color: #fff; display: none; z-index: 9; }
-  #toast.bad { background: var(--red); }
-  /* export image: shown for a moment at the top of the page while html2canvas draws it */
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto; padding: 12px 16px;
+           border-radius: 12px; background: var(--ink); color: #fff; display: none; z-index: 40; font-size: 15px;
+           box-shadow: 0 10px 30px -10px rgba(30, 42, 68, .5); }
+  #toast.bad { background: var(--pen); }
+  /* ảnh bảng chấm xuất ra: giữ đúng màu file Sheet của cô */
   #exportCanvas { display: none; position: absolute; left: 0; top: 0; z-index: 20; width: max-content;
                   background: #fff; padding: 12px; }
   #exportCanvas table { border-collapse: collapse; font: 20px "Times New Roman", serif; }
   #exportCanvas td, #exportCanvas th { border: 1px solid #bbb; padding: 6px 14px; text-align: center; min-width: 170px; }
   #exportCanvas td:first-child { text-align: left; font-weight: bold; }
-  #exportCanvas .title, #exportCanvas th { background: var(--pink); font-weight: bold; }
-  #exportCanvas .date, #exportCanvas .pen { background: var(--yellow); }
-  #exportCanvas .red { color: var(--red); }
+  #exportCanvas .title, #exportCanvas th { background: var(--x-pink); font-weight: bold; }
+  #exportCanvas .date, #exportCanvas .pen { background: var(--x-yellow); }
+  #exportCanvas .red { color: var(--x-red); }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-<header><h1>Chấm bài</h1><small><?= email ?></small></header>
+<header class="nb"><div class="nb-in"><h1>Chấm bài</h1><span class="who"><?= email ?></span></div></header>
 <main>
   <section class="card">
-    <label class="field">Lớp <select id="cls"><option value="">Đang tải...</option></select></label>
-    <label class="field">Buổi <select id="ses" disabled></select></label>
+    <div id="pickErr"></div>
+    <div class="pick">
+      <label class="field">Lớp <select id="cls"><option value="">Đang tải...</option></select></label>
+      <label class="field">Buổi <select id="ses" disabled></select></label>
+    </div>
     <details id="newSes">
       <summary>+ Tạo buổi mới</summary>
       <div class="row">
@@ -215,11 +290,28 @@ const S = { classes: [], sessions: [], clsId: '', sesId: '', info: null, key: nu
 const VND_PER_USD = 26000;
 
 // ---------- helpers ----------
+// Thời gian chờ tối đa cho mỗi lệnh gửi máy chủ (google.script.run đôi khi không bao giờ trả lời).
+const SLOW_CALLS = { gradePhoto: 300000, readKey: 180000, buildTable: 180000, exportSession: 180000, deleteFile: 180000 };
 function run(fn, ...args) {
   return new Promise((resolve, reject) => {
-    const r = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+    const ms = SLOW_CALLS[fn] || 90000;
+    const timer = setTimeout(() => reject(new Error(`Máy chủ không phản hồi sau ${ms / 1000} giây. Kiểm tra mạng rồi thử lại.`)), ms);
+    const r = google.script.run
+      .withSuccessHandler((v) => { clearTimeout(timer); resolve(v); })
+      .withFailureHandler((e) => { clearTimeout(timer); reject(e); });
     r[fn](...args);
   });
+}
+
+/** Lỗi khi tải lớp/buổi: hiện rõ, không tự tắt, kèm cách xử lý và nút thử lại. */
+function showPickError(what, e, retry) {
+  const msg = errMsg(e);
+  const hint = /PERMISSION_DENIED|reading from storage|server error/i.test(msg)
+    ? '<br>Hay gặp khi trình duyệt đăng nhập nhiều tài khoản Google: mở web bằng hồ sơ Chrome chỉ có tài khoản dùng web, hoặc trên điện thoại.'
+    : '';
+  $('pickErr').innerHTML = `<div class="alert bad"><b>Không tải được ${what}.</b> ${esc(msg)}${hint}
+    <div class="row"><button id="pickRetry" type="button">Thử lại</button></div></div>`;
+  $('pickRetry').onclick = () => { $('pickErr').innerHTML = ''; retry(); };
 }
 function toast(msg, bad) {
   const t = $('toast'); t.textContent = msg; t.className = bad ? 'bad' : ''; t.style.display = 'block';
@@ -229,7 +321,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({'&': '&amp;
 function store(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 function load(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
 function money(usd) { return '$' + usd.toFixed(4) + ' (~' + Math.round(usd * VND_PER_USD).toLocaleString('vi-VN') + 'đ)'; }
-function costText() { return `${money(S.cost)} trả phí · ${S.freeCalls} lượt dùng key miễn phí`; }
+function costText() { return `Đã tốn ${money(S.cost)} cho key trả phí, ${S.freeCalls} lượt dùng key miễn phí.`; }
 function track(r) { S.cost += r.costUsd || 0; if (r.paid === false) S.freeCalls++; }
 function errMsg(e) { return (e && e.message) || String(e); }
 
@@ -237,11 +329,16 @@ function errMsg(e) { return (e && e.message) || String(e); }
 async function loadClasses() {
   try {
     S.classes = await run('listClasses');
+    $('pickErr').innerHTML = '';
     $('cls').innerHTML = '<option value="">Chọn lớp</option>' +
       S.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
     const last = load('lastClass');
     if (last && S.classes.some((c) => c.id === last)) { $('cls').value = last; await onClass(); }
-  } catch (e) { toast('Không tải được danh sách lớp: ' + errMsg(e), true); }
+    if (!S.classes.length) showPickError('danh sách lớp', new Error('Folder chấm bài chưa có folder lớp nào (TA6, TA7.1...).'), loadClasses);
+  } catch (e) {
+    $('cls').innerHTML = '<option value="">Không tải được lớp</option>';
+    showPickError('danh sách lớp', e, loadClasses);
+  }
 }
 
 async function onClass(selectId) {
@@ -250,13 +347,17 @@ async function onClass(selectId) {
   if (!S.clsId) { $('ses').innerHTML = ''; return; }
   try {
     S.sessions = await run('listSessions', S.clsId);
+    $('pickErr').innerHTML = '';
     $('ses').innerHTML = '<option value="">Chọn buổi</option>' + S.sessions.map((s) =>
-      `<option value="${s.id}">${esc(s.label)} · ${s.photos} ảnh${s.hasKey ? '' : ' · chưa có key'}${s.sheetUrl ? ' · đã chấm' : ''}</option>`).join('');
+      `<option value="${s.id}">${esc(s.label)} (${s.photos} ảnh${s.hasKey ? '' : ', chưa có đáp án'}${s.sheetUrl ? ', đã chấm' : ''})</option>`).join('');
     $('ses').disabled = false;
     const pick = selectId || load('lastSession');
     if (pick && S.sessions.some((s) => s.id === pick)) $('ses').value = pick;
     await onSession();
-  } catch (e) { toast('Không tải được các buổi: ' + errMsg(e), true); }
+  } catch (e) {
+    $('ses').innerHTML = '<option value="">Không tải được buổi</option>';
+    showPickError('các buổi của lớp', e, () => onClass(selectId));
+  }
 }
 
 async function onSession() {
@@ -267,7 +368,7 @@ async function onSession() {
   S.exported = null; S.dirty = false;
   $('queue').innerHTML = ''; ['keyBox', 'progress', 'alertBox', 'tableBox', 'exportBox'].forEach((id) => ($(id).innerHTML = ''));
   const s = S.sessions.find((x) => x.id === S.sesId);
-  $('sesInfo').textContent = s ? `${s.photos} ảnh bài làm · ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}` : '';
+  $('sesInfo').textContent = s ? `${s.photos} ảnh bài làm, ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}.` : '';
   $('keyStatus').textContent = s ? (s.hasKey ? 'Đã có ảnh đáp án.' : 'Chưa có ảnh đáp án.') : 'Chọn buổi trước.';
   closeViewer();
   renderGradeTop();
@@ -363,7 +464,7 @@ let processing = Promise.resolve(), uploading = Promise.resolve();
 const U = { saved: 0, failed: 0, pending: 0 };
 function uploadSummary() {
   $('uploadSummary').textContent = (U.saved || U.failed || U.pending)
-    ? `Đã lưu ${U.saved} ảnh${U.pending ? ` · đang xử lý ${U.pending}` : ''}${U.failed ? ` · ${U.failed} ảnh lỗi (chụp lại)` : ''}` : '';
+    ? `Đã lưu ${U.saved} ảnh${U.pending ? `, đang xử lý ${U.pending}` : ''}${U.failed ? `, ${U.failed} ảnh lỗi (chụp lại)` : ''}.` : '';
 }
 
 /** Ảnh mờ/tối: hỏi cô chụp lại hay vẫn dùng. Không chặn các ảnh khác trong lúc chờ. */
@@ -384,7 +485,7 @@ function askKeep(el, q, preview) {
 function handleFiles(input, kind, mode) {
   const files = Array.from(input.files || []); input.value = '';
   if (!S.sesId) return toast('Chọn hoặc tạo buổi trước', true);
-  const sesId = S.sesId, label = kind === 'key' ? 'Đáp án · ' : '';
+  const sesId = S.sesId, label = kind === 'key' ? 'Đáp án: ' : '';
   const batch = { replaceNext: kind === 'key' && mode !== 'add' };
   U.pending += files.length; uploadSummary();
 
@@ -410,7 +511,7 @@ function handleFiles(input, kind, mode) {
         const s = S.sessions.find((x) => x.id === sesId);
         if (s) { if (kind === 'key') s.hasKey = true; else s.photos++; }
         if (s && sesId === S.sesId) {
-          $('sesInfo').textContent = `${s.photos} ảnh bài làm · ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}`;
+          $('sesInfo').textContent = `${s.photos} ảnh bài làm, ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}.`;
           if (kind === 'key') $('keyStatus').textContent = 'Đã có ảnh đáp án.';
         }
         finish(el);
@@ -478,7 +579,7 @@ async function loadGallery() {
 
 function renderGallery() {
   const photos = V.files.filter((f) => f.kind === 'photo').length;
-  $('galleryCount').textContent = `· ${photos} ảnh bài, ${V.files.length - photos} ảnh đáp án`;
+  $('galleryCount').textContent = `(${photos} ảnh bài, ${V.files.length - photos} ảnh đáp án)`;
   $('gallery').innerHTML = V.files.map((f, i) => `<button type="button" class="thumb" data-i="${i}">
       ${V.thumbs[f.id] ? `<img src="${V.thumbs[f.id]}" alt="">` : `<div class="ph">${esc(f.name)}</div>`}
       <span class="${f.kind === 'key' ? 'k' : (f.graded ? 'ok' : '')}">${fileLabel(f)}</span></button>`).join('');
@@ -506,7 +607,7 @@ function keepImage(id, src) {  // chỉ giữ 4 ảnh to gần nhất cho nhẹ 
 async function showViewerImage() {
   const f = V.files[V.idx];
   if (!f) return closeViewer();
-  $('vName').textContent = `${V.idx + 1}/${V.files.length} · ${fileLabel(f)} · ${f.name}`;
+  $('vName').textContent = `Ảnh ${V.idx + 1}/${V.files.length}, ${fileLabel(f).toLowerCase()}`;
   $('vPrev').disabled = V.idx === 0; $('vNext').disabled = V.idx === V.files.length - 1;
   resetDel();
   const img = $('vImg');
@@ -552,7 +653,7 @@ async function deleteCurrent() {
     if (s) {
       if (f.kind === 'photo') s.photos = Math.max(0, s.photos - 1);
       else s.hasKey = V.files.some((x) => x.kind === 'key');
-      if (sesId === S.sesId) $('sesInfo').textContent = `${s.photos} ảnh bài làm · ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}`;
+      if (sesId === S.sesId) $('sesInfo').textContent = `${s.photos} ảnh bài làm, ${s.hasKey ? 'đã có đáp án' : 'chưa có đáp án'}.`;
     }
     if (sesId === S.sesId && (r.rebuilt || f.kind === 'key' || !$('tab-grade').hidden)) {
       const tableOpen = !!$('tableBox').innerHTML;
@@ -606,7 +707,7 @@ async function renderGradeTop() {
 
   let action;
   if (!S.info.keys.length) {
-    action = '<p style="color:var(--red)">Chưa có ảnh đáp án. Tải key lên ở tab Chụp bài.</p>';
+    action = '<p style="color:var(--pen)">Chưa có ảnh đáp án. Tải key lên ở tab Chụp bài.</p>';
   } else if (!S.key) {
     action = `<div class="row"><button id="readKey" class="primary" type="button" ${S.gradable.length ? '' : 'disabled'}>
       Bước 1: đọc đáp án</button></div>`;
@@ -624,13 +725,13 @@ async function renderGradeTop() {
         <p><button id="readKey" type="button">Đọc lại đáp án và chấm lại tất cả</button></p></details>`;
   }
   top.innerHTML = `
-    <p><b>${esc(S.info.className)} · ${esc(S.info.label)}</b> - ${S.gradable.length} ảnh bài làm:
-      ${S.gradable.length - S.newPhotos.length} đã chấm, <b>${S.newPhotos.length} ảnh mới</b> ·
-      ${S.info.roster.length} học sinh trong danh sách</p>
+    <p><b>${esc(S.info.className)}, buổi ${esc(S.info.label)}</b>: ${S.gradable.length} ảnh bài làm,
+      ${S.gradable.length - S.newPhotos.length} đã chấm, <b>${S.newPhotos.length} ảnh mới</b>.
+      Lớp có ${S.info.roster.length} học sinh.</p>
     <p id="keyInfo" class="muted">Đang kiểm tra key Gemini...</p>
     ${S.info.sheetUrl ? `<p>Đã xuất file chấm${st.exportedAt ? ' lúc ' + esc(st.exportedAt) : ''}:
-      <a href="${S.info.sheetUrl}" target="_blank">mở file Sheet</a>
-      ${S.dirty ? ' · <span class="dirty">bảng có chỉnh sửa chưa xuất lại</span>' : ''}</p>` : ''}
+      <a href="${S.info.sheetUrl}" target="_blank">mở file Sheet</a>.
+      ${S.dirty ? '<br><span class="dirty">Bảng có chỉnh sửa chưa xuất lại.</span>' : ''}</p>` : ''}
     ${action}`;
   if ($('readKey')) $('readKey').onclick = readKey;
   if ($('gradeNew')) $('gradeNew').onclick = () => gradePhotos(S.newPhotos, false);
@@ -646,7 +747,7 @@ async function showKeyStatus() {
     const keys = await run('keyStatus');
     const free = keys.filter((k) => !k.paid), ready = free.filter((k) => k.ok).length;
     $('keyInfo').innerHTML = `Key miễn phí: <b>${ready}/${free.length} sẵn sàng</b>` +
-      keys.filter((k) => !k.ok || k.paid).map((k) => ` · ${esc(k.label)}: ${esc(k.note)}`).join('');
+      '. ' + keys.filter((k) => !k.ok || k.paid).map((k) => `Key ${esc(k.label)}: ${esc(k.note)}.`).join(' ');
   } catch (e) { if ($('keyInfo')) $('keyInfo').textContent = 'Không kiểm tra được key: ' + errMsg(e); }
 }
 
@@ -668,7 +769,7 @@ function renderKey() {
   const total = S.key.parts.reduce((n, p) => n + p.items.filter((it) => String(it.en).trim()).length, 0);
   $('keyBox').innerHTML = `
     <h2>Đáp án AI đọc được: ${esc(S.key.topic)}</h2>
-    <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(' · ')}</b> - tổng ${total} mục.
+    <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(', ')}</b>, tổng ${total} mục.
       Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa.</p>
     <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${esc(p.part)}</h2>${
       p.items.map((it, ii) => `<div class="row" style="margin-bottom:6px">
@@ -739,8 +840,8 @@ async function gradePhotos(photos, checkMatch) {
   const matches = [];
   for (let i = 0; i < photos.length; i++) {
     const p = photos[i];
-    $('progress').innerHTML = `<p>Đang chấm ảnh ${i + 1}/${photos.length} (${esc(p.name)})${lastKey ? ' · đang dùng key ' + esc(lastKey) : ''}<br>
-      <span class="muted">${costText()} · Giữ màn hình sáng, đừng chuyển app. Lỡ tắt thì mở lại và bấm "Chấm ảnh mới":
+    $('progress').innerHTML = `<p>Đang chấm ảnh ${i + 1}/${photos.length}${lastKey ? ' (key ' + esc(lastKey) + ')' : ''}...<br>
+      <span class="muted">${costText()} Giữ màn hình sáng, đừng chuyển app. Lỡ tắt thì mở lại và bấm "Chấm ảnh mới":
       ảnh đã chấm được lưu rồi.</span></p>
       <div class="bar"><i style="width:${Math.round(i / photos.length * 100)}%"></i></div>`;
     try {
@@ -777,7 +878,7 @@ function renderTable() {
   const t = S.table, cols = t.columns;
   $('tableBox').innerHTML = `
     <h2>Bảng chấm - cô duyệt và sửa trực tiếp <span id="saveState" class="muted"></span></h2>
-    <p class="muted">Sửa thẳng vào ô, tự lưu. <b>Cam</b> = nên xem lại, <b>xám</b> = không có bài (chọn Vắng / Không có bài).
+    <p class="muted">Sửa thẳng vào ô, tự lưu. Dòng <b>tô vàng</b> nên xem lại, dòng <b>xám</b> là em không có bài (chọn Vắng hoặc Không có bài).
       Chép phạt là đề xuất theo luật chung. Chốt xong bấm nút xuất ở đáy màn hình; xuất rồi vẫn sửa và xuất lại được.</p>
     <div class="tablewrap"><table class="review"><thead><tr><th>Học sinh</th>${cols.map((c) =>
       `<th class="${c === 'TỪ VIẾT SAI' ? '' : (c === 'CHÉP PHẠT' ? 'pen' : 'score')}">${esc(c)}</th>`).join('')}<th>Ghi chú</th><th class="delcell"></th></tr></thead>
@@ -807,7 +908,7 @@ function renderExportBox() {
   $('exportBox').innerHTML = `
     ${ex && ex.at ? `<p>Đã xuất lúc ${esc(ex.at)}:
       ${ex.sheetUrl ? `<a href="${ex.sheetUrl}" target="_blank">mở file Sheet</a>` : ''}
-      ${ex.imageUrl ? ` · <a href="${ex.imageUrl}" target="_blank">xem ảnh bảng chấm</a>` : ''}
+      ${ex.imageUrl ? `, <a href="${ex.imageUrl}" target="_blank">xem ảnh bảng chấm</a>` : ''}
       ${S.dirty ? '<br><span class="dirty">Bảng đã sửa sau lần xuất này. Bấm "Xuất lại" để cập nhật file Sheet và ảnh.</span>' : ''}</p>` : ''}
     <div class="row"><button id="exportBtn" class="primary" type="button">
       ${ex && ex.at ? 'Xuất lại (cập nhật file Sheet + ảnh)' : 'Chốt và xuất file Sheet + ảnh vào folder buổi'}</button></div>`;
@@ -913,7 +1014,7 @@ let saveTimer = null, pendingSave = null;
 function saveTableSoon(delay) {
   clearTimeout(saveTimer);
   pendingSave = { sesId: S.sesId, table: S.table };
-  if ($('saveState')) $('saveState').textContent = '· đang lưu...';
+  if ($('saveState')) $('saveState').textContent = 'Đang lưu...';
   saveTimer = setTimeout(flushSave, delay);
 }
 async function flushSave() {
@@ -923,10 +1024,10 @@ async function flushSave() {
   const ignored = S.ignoredAdd.splice(0);
   try {
     await run('saveTable', job.sesId, tablePayload(job.table), ignored);
-    if ($('saveState') && job.sesId === S.sesId) $('saveState').textContent = '· đã lưu';
+    if ($('saveState') && job.sesId === S.sesId) $('saveState').textContent = 'Đã lưu';
   } catch (e) {
     S.ignoredAdd.push(...ignored);
-    if ($('saveState')) $('saveState').textContent = '· CHƯA LƯU ĐƯỢC';
+    if ($('saveState')) $('saveState').textContent = 'Chưa lưu được';
     toast('Chưa lưu được bảng: ' + errMsg(e), true);
   }
 }
@@ -962,7 +1063,7 @@ async function exportSession() {
     try {
       res = await run('exportSession', S.sesId, tablePayload(), png, ignored);
     } catch (e) { S.ignoredAdd.push(...ignored); throw e; }
-    if ($('saveState')) $('saveState').textContent = '· đã lưu';
+    if ($('saveState')) $('saveState').textContent = 'Đã lưu';
     S.exported = { at: res.exportedAt, sheetUrl: res.sheetUrl, imageUrl: res.imageUrl }; S.dirty = false;
     renderExportBox();
     toast(`Đã xuất vào folder ${S.info.className} / ${S.info.label}. Muốn sửa thì sửa bảng rồi bấm Xuất lại.`);
