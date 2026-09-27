@@ -6,8 +6,9 @@
  * small models miscount letters.
  */
 
-var PART_UNITS = {'TỪ VỰNG': 'từ', 'QUY TẮC TRỌNG ÂM': 'quy tắc'};
+var PART_UNITS = {'TỪ VỰNG': 'từ', 'TỪ MỚI': 'từ', 'QUY TẮC TRỌNG ÂM': 'quy tắc'};
 var VOCAB = 'TỪ VỰNG';
+var WORD_PARTS = ['TỪ VỰNG', 'TỪ MỚI'];  // phần mặc định chấm như từ vựng
 var WRONG_COL = 'TỪ VIẾT SAI';
 var PENALTY_COL = 'CHÉP PHẠT';
 
@@ -205,7 +206,7 @@ function normKey_(s) {
 function prepareKey(parts) {
   var used = {};
   return (parts || []).map(function (p, pi) {
-    var kind = p.kind === 'word' || p.kind === 'formula' ? p.kind : (p.part === VOCAB ? 'word' : 'formula');
+    var kind = p.kind === 'word' || p.kind === 'formula' ? p.kind : (WORD_PARTS.indexOf(p.part) >= 0 ? 'word' : 'formula');
     var n = 0;
     var items = (p.items || []).map(function (it) {
       var id = String(it.id || '').trim();
@@ -401,6 +402,31 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
     rows.push(row);
   });
   return {columns: columns, rows: rows};
+}
+
+/**
+ * Đổi tên một phần đáp án (ví dụ CẤU TRÚC thành TỪ MỚI) ngay trong đáp án đã lưu và bảng đang duyệt:
+ * mã mục không đổi nên không cần chấm lại, các ô cô đã sửa được giữ nguyên.
+ */
+function renamePartIn_(key, table, oldName, newName) {
+  newName = String(newName || '').trim();
+  var parts = (key && key.parts) || [];
+  if (!newName || newName === oldName) return;
+  if (!parts.some(function (p) { return p.part === oldName; })) throw new Error('Đáp án không có phần ' + oldName);
+  if (newName === WRONG_COL || newName === PENALTY_COL || parts.some(function (p) { return p.part === newName; })) {
+    throw new Error('Đã có cột ' + newName);
+  }
+  parts.forEach(function (p) {
+    if (p.part === oldName) { p.part = newName; p.unit = unitFor(newName, p.kind); }
+  });
+  if (!table || !table.columns) return;
+  table.columns = table.columns.map(function (c) { return c === oldName ? newName : c; });
+  table.title = String(table.title || '').split(' + ').map(function (t) { return t === oldName ? newName : t; }).join(' + ');
+  (table.rows || []).forEach(function (r) {
+    [r.values, r.ai].forEach(function (v) {
+      if (v && Object.prototype.hasOwnProperty.call(v, oldName)) { v[newName] = v[oldName]; delete v[oldName]; }
+    });
+  });
 }
 
 // ---------- chấm nhiều lần trong một buổi ----------

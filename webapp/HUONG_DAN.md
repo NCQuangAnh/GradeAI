@@ -155,6 +155,9 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
      phần trong ngoặc của đáp án như `(to sb)` không viết cũng được, nhãn em tự ghi đầu dòng (`O :`, `1.`) không tính.
    - **đúng/sai cả công thức**: dùng cho công thức dạng `S + V(s/es)`, câu gián tiếp, quy tắc trọng âm.
    AI tự chọn, cô chỉ cần đổi khi thấy chưa đúng. Học sinh viết khác thứ tự đáp án vẫn được chấm đúng mục.
+   **Tên phần** (tên cột trong bảng) chọn ở ô trên đầu mỗi phần: TỪ VỰNG, TỪ MỚI, CÔNG THỨC, CẤU TRÚC...
+   Đã chấm rồi mới muốn đổi tên (ví dụ CẤU TRÚC thành TỪ MỚI): mở **Đáp án đang dùng** > chọn tên mới ở ô
+   của phần đó. Cột trong bảng đổi theo, không chấm lại, không tốn lượt Gemini, các ô cô đã sửa giữ nguyên.
 2. Chờ chấm từng ảnh (vài giây một ảnh). **Giữ màn hình sáng**; lỡ tắt thì mở lại, bấm **Chấm ảnh mới**
    (ảnh đã chấm không mất). Nếu 2 bài đầu không khớp đáp án, web dừng lại hỏi.
 3. Duyệt **bảng chấm**: sửa điểm, từ sai, chép phạt, ghi chú ngay trên bảng.

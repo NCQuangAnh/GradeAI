@@ -17,7 +17,7 @@ var CONFIG = {
   // Luật chép phạt. min_wrong: sai từ bao nhiêu mục trở lên. {total} = tổng số mục.
   PENALTY: {
     'default': {
-      counted_columns: ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP'],
+      counted_columns: ['TỪ VỰNG', 'TỪ MỚI', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP'],
       levels: [
         {min_wrong: 2, penalty: 'từ viết sai x10 lần'},
         {min_wrong: 5, penalty: 'từ mới x15 lần'}
@@ -511,6 +511,16 @@ function gradePhoto(sessionId, fileId, keyParts, roster) {
   out.url = file.getUrl();
   updateState_(DriveApp.getFolderById(sessionId), function (s) { s.results[fileId] = out; });
   return {fileId: fileId, keyMatches: out.keyMatches, costUsd: r.costUsd, paid: r.paid, keyLabel: r.keyLabel};
+}
+
+/** Đổi tên một phần đáp án và cột tương ứng trong bảng (không chấm lại). */
+function renamePart(sessionId, oldName, newName) {
+  requireUser_();
+  updateState_(DriveApp.getFolderById(sessionId), function (s) {
+    renamePartIn_(s.key, s.table, oldName, newName);
+    if (s.table) s.tableUpdatedAt = Date.now();  // file đã xuất cần xuất lại
+  });
+  return true;
 }
 
 /** Lập bảng từ tất cả ảnh đã chấm, giữ lại các dòng cô đã duyệt ở lần trước. */

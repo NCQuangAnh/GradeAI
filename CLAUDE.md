@@ -47,6 +47,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Đáp án: mỗi phần có `kind` (`word` = "cụm : nghĩa", code chấm chính tả bằng `decideVocab`, hiểu `Ving`/`V-ing`/`doing`,
   `O`/`sb`, phần trong ngoặc tùy chọn, bỏ nhãn đầu dòng "O :"; `formula` = Gemini chấm đúng/sai) và mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
+  Đổi tên phần (cột) sau khi chấm: `renamePart` / `renamePartIn_`, không chấm lại. `TỪ MỚI` là tên phần do cô chọn
+  (không có trong enum Gemini `PART_NAMES`), mặc định chấm như từ vựng và được tính chép phạt.
 - Bài 2 mặt: `pairBackSides_` ghép ảnh không tên với ảnh ngay trước (theo tên file = thời điểm chụp `takenAt`) nếu
   trùng ≤ 2 mục; dòng đó tô vàng. Ảnh chưa nhận ra tên gom theo tên ghi trên giấy (`paperGroup_`); cô chọn tên trùng
   dòng đã có ảnh thì web lưu rồi `buildTable` để gộp (`mergeRowsByName`).

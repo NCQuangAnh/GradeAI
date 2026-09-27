@@ -77,6 +77,13 @@ const MOCK = {{
   saveClassRoster: (id, names) => {{ MOCK_INFO.roster = names; return names; }},
   buildTable: () => MOCK_INFO.state.table,
   saveKey: (id, key) => ({{topic: key.topic, parts: key.parts}}),
+  renamePart: (id, o, n) => {{
+    const st = MOCK_INFO.state;
+    st.key.parts.forEach((p) => {{ if (p.part === o) p.part = n; }});
+    st.table.columns = st.table.columns.map((c) => (c === o ? n : c));
+    st.table.rows.forEach((r) => [r.values, r.ai].forEach((v) => {{ if (v && o in v) {{ v[n] = v[o]; delete v[o]; }} }}));
+    return true;
+  }},
   gradePhoto: () => ({{keyMatches: true, costUsd: 0.0003, paid: false, keyLabel: 'miễn phí #1'}}),
   readKey: () => ({{topic: 'cấu trúc V-ing', costUsd: 0.0006, paid: false, keyLabel: 'miễn phí #1', parts: [
     {{part: 'CÔNG THỨC', kind: 'word', unit: 'từ', items: [{{id: '1.1', en: 'admit + V-ing', vi: 'thừa nhận làm gì'}},

@@ -14,7 +14,7 @@ const ROSTER = ['Khánh Vy', 'Vân Anh', 'Đức Minh', 'Ngọc Hà', 'Hải Nam
   'Phương Nhi', 'Minh Hằng', 'Quốc Việt', 'Minh Khôi'];
 const PENALTY = {
   default: {
-    counted_columns: ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP'],
+    counted_columns: ['TỪ VỰNG', 'TỪ MỚI', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP'],
     levels: [{ min_wrong: 2, penalty: 'từ viết sai x10 lần' }, { min_wrong: 5, penalty: 'từ mới x15 lần' }],
     separate_columns: { 'QUY TẮC TRỌNG ÂM': [{ min_wrong: 3, penalty: 'quy tắc trọng âm x7 lần' }] },
   },
@@ -249,6 +249,26 @@ test('classifyGeminiError decides how to rotate keys', () => {
   assert.equal(G.classifyGeminiError(404, { error: { code: 404, message: 'no longer available to new users' } }).kind, 'daily');
   assert.equal(G.classifyGeminiError(503, { error: { code: 503, message: 'overloaded' } }).kind, 'retry');
   assert.equal(G.classifyGeminiError(400, { error: { code: 400, message: 'Invalid JSON payload' } }).kind, 'fatal');
+});
+
+test('renaming a key part renames its column and keeps the teacher edits and ids', () => {
+  const key = { topic: 't', parts: plain(G.prepareKey([
+    { part: 'CÔNG THỨC', kind: 'word', items: [{ en: 'admit + V-ing', vi: 'thừa nhận' }] },
+    { part: 'CẤU TRÚC', kind: 'word', items: [{ en: 'opinion', vi: 'quan điểm' }, { en: 'size', vi: 'kích cỡ' }] }])) };
+  const table = { title: 'CÔNG THỨC + CẤU TRÚC', columns: ['CÔNG THỨC', 'CẤU TRÚC', 'TỪ VIẾT SAI', 'CHÉP PHẠT'],
+    rows: [{ name: 'An', values: { 'CÔNG THỨC': '1/1 từ', 'CẤU TRÚC': 'cô sửa 2/2', 'CHÉP PHẠT': '' },
+             ai: { 'CẤU TRÚC': '1/2 từ' } }] };
+  G.renamePartIn_(key, table, 'CẤU TRÚC', 'TỪ MỚI');
+  assert.deepEqual(key.parts.map((p) => [p.part, p.items.map((i) => i.id)]), [['CÔNG THỨC', ['1.1']], ['TỪ MỚI', ['2.1', '2.2']]]);
+  assert.deepEqual(table.columns, ['CÔNG THỨC', 'TỪ MỚI', 'TỪ VIẾT SAI', 'CHÉP PHẠT']);
+  assert.equal(table.title, 'CÔNG THỨC + TỪ MỚI');
+  assert.equal(table.rows[0].values['TỪ MỚI'], 'cô sửa 2/2');
+  assert.equal(table.rows[0].values['CẤU TRÚC'], undefined);
+  assert.equal(table.rows[0].ai['TỪ MỚI'], '1/2 từ');
+  assert.throws(() => G.renamePartIn_(key, table, 'TỪ MỚI', 'CÔNG THỨC'), /Đã có cột/);
+  // TỪ MỚI still counts towards the penalty
+  assert.equal(G.penaltyFor({ 'CÔNG THỨC': { correct: 12, total: 13, wrongCount: 1 },
+    'TỪ MỚI': { correct: 7, total: 8, wrongCount: 1 } }, 'TA9', PENALTY), 'từ viết sai x10 lần');
 });
 
 test('normalizeKey keeps each part kind and gives every item an id', () => {

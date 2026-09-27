@@ -687,9 +687,28 @@ $('vImgWrap').addEventListener('touchend', (e) => {
 // và máy nào mở cũng thấy cùng kết quả.
 function sameIds(a, b) { return a.slice().sort().join(',') === b.slice().sort().join(','); }
 function partsSummary(key) { return key.parts.map((p) => `${p.items.length} ${p.unit}`).join(', '); }
-function keyListHtml(key) {
-  return key.parts.map((p) => `<b>${esc(p.part)}</b><ol class="keylist">${
-    p.items.map((it) => `<li>${esc(it.en)} : ${esc(it.vi)}</li>`).join('')}</ol>`).join('');
+function keyListHtml(key, renamable) {
+  return key.parts.map((p) => `${renamable ? partNameSelect(p, key.parts, `data-old="${esc(p.part)}"`) : `<b>${esc(p.part)}</b>`}
+    <ol class="keylist">${p.items.map((it) => `<li>${esc(it.en)} : ${esc(it.vi)}</li>`).join('')}</ol>`).join('');
+}
+
+/** Ô chọn tên phần (đổi tên cột trong bảng), bỏ các tên phần khác đang dùng. */
+function partNameSelect(p, parts, attrs) {
+  const used = parts.filter((x) => x !== p).map((x) => x.part);
+  const names = PARTS.includes(p.part) ? PARTS : [p.part].concat(PARTS);
+  return `<select class="partName" ${attrs} style="width:auto;font-weight:700" aria-label="Tên phần">${names
+    .filter((n) => !used.includes(n)).map((n) => `<option ${n === p.part ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+}
+
+async function renamePart(oldName, newName) {
+  if (oldName === newName) return;
+  const tableOpen = !!$('tableBox').innerHTML;
+  await flushSave();
+  try { await run('renamePart', S.sesId, oldName, newName); }
+  catch (e) { toast(errMsg(e), true); return renderGradeTop(); }
+  await renderGradeTop();
+  if (tableOpen && S.table) renderTable();
+  toast(`Đã đổi ${oldName} thành ${newName}`);
 }
 
 async function renderGradeTop() {
@@ -725,7 +744,8 @@ async function renderGradeTop() {
       ${S.newPhotos.length ? `<button id="gradeNew" class="primary" type="button">Chấm ${S.newPhotos.length} ảnh mới</button>` : ''}
       ${S.table ? `<button id="openTable" type="button" class="${S.newPhotos.length ? '' : 'primary'}">Xem / sửa bảng chấm</button>` : ''}
       </div>
-      <details style="margin-top:8px"><summary>Đáp án đang dùng: ${esc(partsSummary(S.key))}</summary>${keyListHtml(S.key)}
+      <details style="margin-top:8px"><summary>Đáp án đang dùng: ${esc(partsSummary(S.key))}</summary>
+        <p class="muted">Đổi tên phần ở ô chọn bên dưới: cột trong bảng đổi theo, không phải chấm lại.</p>${keyListHtml(S.key, true)}
         <p><button id="readKey" type="button">Đọc lại đáp án và chấm lại tất cả</button></p></details>`;
   }
   top.innerHTML = `
@@ -744,6 +764,7 @@ async function renderGradeTop() {
     const k = await run('saveKey', S.sesId, S.key, false); S.key.parts = k.parts; gradePhotos(S.newPhotos, false);
   };
   if ($('openTable')) $('openTable').onclick = renderTable;
+  top.querySelectorAll('select.partName').forEach((el) => (el.onchange = () => renamePart(el.dataset.old, el.value)));
   $('editRoster').onclick = editRoster;
   showKeyStatus();
 }
@@ -793,10 +814,11 @@ async function readKey() {
 }
 
 /** The key Gemini read, editable: the teacher fixes or removes items before grading. */
-const PARTS = ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP', 'QUY TẮC TRỌNG ÂM'];
-const UNITS = { 'TỪ VỰNG': 'từ', 'QUY TẮC TRỌNG ÂM': 'quy tắc' };
+const PARTS = ['TỪ VỰNG', 'TỪ MỚI', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP', 'QUY TẮC TRỌNG ÂM'];
+const UNITS = { 'TỪ VỰNG': 'từ', 'TỪ MỚI': 'từ', 'QUY TẮC TRỌNG ÂM': 'quy tắc' };
+const WORD_PARTS = ['TỪ VỰNG', 'TỪ MỚI'];
 const KINDS = { word: 'như từ vựng (chính tả, nghĩa)', formula: 'đúng/sai cả công thức' };
-function partKind(p) { return p.kind || (p.part === 'TỪ VỰNG' ? 'word' : 'formula'); }
+function partKind(p) { return p.kind || (WORD_PARTS.includes(p.part) ? 'word' : 'formula'); }
 function unitOf(part, kind) { return kind === 'word' ? 'từ' : (UNITS[part] || 'công thức'); }
 function renderKey() {
   S.key.parts = S.key.parts.filter((p) => p.items.length);
@@ -805,7 +827,7 @@ function renderKey() {
     <h2>Đáp án AI đọc được: ${esc(S.key.topic)}</h2>
     <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(', ')}</b>, tổng ${total} mục.
       Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa.</p>
-    <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${esc(p.part)}</h2>
+    <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${partNameSelect(p, S.key.parts, `data-p="${pi}"`)}</h2>
       <label class="muted">Cách chấm <select class="kind" data-p="${pi}" style="width:auto">${Object.keys(KINDS).map((k) =>
         `<option value="${k}" ${partKind(p) === k ? 'selected' : ''}>${KINDS[k]}</option>`).join('')}</select></label>${
       p.items.map((it, ii) => `<div class="row" style="margin-bottom:6px">
@@ -825,6 +847,9 @@ function renderKey() {
     $('goGrade').disabled = !S.key.parts.some((p) => p.items.some((it) => String(it.en).trim()));
   }));
   const reopen = () => { renderKey(); $('keyBox').querySelector('details').open = true; };
+  $('keyBox').querySelectorAll('select.partName').forEach((el) => (el.onchange = () => {
+    const p = S.key.parts[+el.dataset.p]; p.part = el.value; p.unit = unitOf(p.part, partKind(p)); reopen();
+  }));
   $('keyBox').querySelectorAll('select.kind').forEach((el) => (el.onchange = () => {
     const p = S.key.parts[+el.dataset.p]; p.kind = el.value; p.unit = unitOf(p.part, p.kind); reopen();
   }));
@@ -836,7 +861,7 @@ function renderKey() {
   }));
   if ($('addPart')) $('addPart').onclick = () => {
     const part = $('newPart').value; if (!part) return;
-    const kind = part === 'TỪ VỰNG' ? 'word' : 'formula';
+    const kind = WORD_PARTS.includes(part) ? 'word' : 'formula';
     S.key.parts.push({ part, kind, unit: unitOf(part, kind), items: [{ en: '', vi: '' }] });
     S.key.parts.sort((a, b) => PARTS.indexOf(a.part) - PARTS.indexOf(b.part)); reopen();
   };
