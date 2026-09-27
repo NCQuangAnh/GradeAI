@@ -462,6 +462,27 @@ function saveKeyState_(state) {
   PropertiesService.getScriptProperties().setProperty('KEY_STATE', JSON.stringify(state));
 }
 
+/**
+ * Đếm lượt gọi thành công của mỗi key trong ngày (giờ Thái Bình Dương) để web hiện đã dùng bao nhiêu.
+ * Chờ khóa tối đa 5 giây; không lấy được thì bỏ qua lượt đếm này, không làm chậm việc chấm.
+ */
+function countUse_(id, today) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    var state = loadKeyState_(), used = state.used && state.used.day === today ? state.used : {day: today, count: {}};
+    used.count[id] = (used.count[id] || 0) + 1;
+    state.used = used;
+    saveKeyState_(state);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function usedToday_(state, id, today) {
+  return state.used && state.used.day === today ? state.used.count[id] || 0 : 0;
+}
+
 function keyResting_(st, today, now) {
   return st && ((st.day && st.day === today) || (st.until && st.until > now));
 }
@@ -479,6 +500,7 @@ function callGemini_(body) {
     var code = res.getResponseCode(), json;
     try { json = JSON.parse(res.getContentText()); } catch (e) { json = {}; }
     if (code === 200) {
+      countUse_(id, today);
       var parsed = parseGeminiResponse(json);
       parsed.keyLabel = k.label;
       parsed.paid = k.paid;
@@ -488,9 +510,12 @@ function callGemini_(body) {
     }
     var c = classifyGeminiError(code, json);
     if (c.kind === 'fatal') throw new Error(c.reason);
-    if (c.kind === 'daily' || c.kind === 'bad_key') state[id] = {day: today, reason: c.reason, label: k.label};
-    if (c.kind === 'minute') state[id] = {until: Date.now() + c.retrySec * 1000, reason: c.reason, label: k.label};
-    if (c.kind !== 'retry') saveKeyState_(state);
+    if (c.kind !== 'retry') {
+      state = loadKeyState_();  // đọc lại để không ghi đè số lượt vừa đếm
+      if (c.kind === 'daily' || c.kind === 'bad_key') state[id] = {day: today, reason: c.reason, label: k.label};
+      if (c.kind === 'minute') state[id] = {until: Date.now() + c.retrySec * 1000, reason: c.reason, label: k.label};
+      saveKeyState_(state);
+    }
     problems.push('key ' + k.label + ': ' + c.reason);
   }
   throw new Error('Không còn key nào dùng được lúc này. ' +
@@ -502,9 +527,9 @@ function keyStatus() {
   requireUser_();
   var state = loadKeyState_(), today = pacificDay_(), now = Date.now();
   return geminiKeys_().map(function (k) {
-    var st = state[keyId_(k.key)];
+    var id = keyId_(k.key), st = state[id];
     var resting = keyResting_(st, today, now);
-    return {label: k.label, paid: k.paid, ok: !resting,
+    return {label: k.label, paid: k.paid, ok: !resting, used: usedToday_(state, id, today),
             note: !resting ? 'sẵn sàng' : (st.day ? st.reason + ' (mở lại khoảng 14-15h)' :
                   st.reason + ' (nghỉ ' + Math.ceil((st.until - now) / 1000) + ' giây)')};
   });

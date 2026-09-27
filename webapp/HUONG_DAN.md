@@ -49,8 +49,12 @@ hết tất cả key miễn phí mới dùng **key trả phí**. Lượt miễn 
 3. **Lưu thuộc tính**. Thêm/bớt người dùng hoặc key sau này chỉ cần sửa các dòng này, có hiệu lực ngay, không cần triển khai lại.
 4. (Nên làm) Ở mục **Múi giờ** chọn `(GMT+07:00) Hà Nội` hoặc Bangkok.
 
-Trên tab **Chấm bài**, web hiện số key miễn phí còn dùng được và key nào đã hết lượt hôm nay.
+Trên tab **Chấm bài**, web hiện số key miễn phí còn dùng được, key nào đã hết lượt hôm nay và **số lượt mỗi key đã dùng
+trong ngày** (mỗi ảnh bài 1 lượt, mỗi lần đọc đáp án 1 lượt; ngày tính từ 14-15h giờ Việt Nam).
 Chi phí hiển thị chỉ tính các lượt dùng key trả phí.
+Hạn mức miễn phí tính theo từng tài khoản Gmail (dự án), không theo key; con số chính xác xem ở
+https://aistudio.google.com/rate-limit khi đăng nhập tài khoản tạo key (thường vài trăm tới khoảng 1.000 lượt/ngày
+cho Flash-Lite).
 
 ## 4. Cấp quyền lần đầu
 

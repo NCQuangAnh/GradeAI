@@ -820,8 +820,10 @@ async function showKeyStatus() {
   try {
     const keys = await run('keyStatus');
     const free = keys.filter((k) => !k.paid), ready = free.filter((k) => k.ok).length;
+    const used = keys.filter((k) => k.used).map((k) => `${esc(k.label)}: ${k.used}`);
     $('keyInfo').innerHTML = `Key miễn phí: <b>${ready}/${free.length} sẵn sàng</b>` +
-      '. ' + keys.filter((k) => !k.ok || k.paid).map((k) => `Key ${esc(k.label)}: ${esc(k.note)}.`).join(' ');
+      '. ' + keys.filter((k) => !k.ok || k.paid).map((k) => `Key ${esc(k.label)}: ${esc(k.note)}.`).join(' ') +
+      (used.length ? `<br>Lượt đã dùng hôm nay (tính từ 14-15h hôm trước): ${used.join(', ')}.` : '');
   } catch (e) { if ($('keyInfo')) $('keyInfo').textContent = 'Không kiểm tra được key: ' + errMsg(e); }
 }
 

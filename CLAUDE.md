@@ -41,7 +41,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - `Grading.gs`, `Gemini.gs` là logic thuần, test bằng Node: `node --test webapp/test/grading.test.js`.
 - `node webapp/test/gemini_live.js`: gọi Gemini thật đúng như web (tốn ~2 lượt, ~100đ).
 - Key Gemini (Script Properties): `GEMINI_FREE_KEYS` (dùng trước, xoay vòng khi hết lượt) rồi `GEMINI_API_KEY`
-  (trả phí). Trạng thái hết lượt lưu ở `KEY_STATE`, reset theo ngày giờ Thái Bình Dương. Phân loại lỗi: `classifyGeminiError`.
+  (trả phí). Trạng thái hết lượt và số lượt dùng trong ngày (`countUse_`) lưu ở `KEY_STATE`, reset theo ngày giờ
+  Thái Bình Dương. Phân loại lỗi: `classifyGeminiError`. Hạn mức miễn phí tính theo dự án (tài khoản), không theo key.
 - Kết quả mỗi buổi lưu ở `ket_qua_cham.json` trong folder buổi (đáp án đã xác nhận, kết quả từng ảnh, tên cô chọn,
   ảnh bị xóa, bảng đang duyệt). Chấm thêm ảnh chỉ chấm ảnh mới; `mergeTables` giữ các dòng cô đã sửa.
 - Đáp án: mỗi phần có `kind` (`word` = "cụm : nghĩa", code chấm chính tả bằng `decideVocab`, hiểu `Ving`/`V-ing`/`doing`,

@@ -67,7 +67,7 @@ const MOCK = {{
   listSessions: () => [{{id: 's1', name: 'NGÀY 22/09/26', label: '22/09/26', photos: {len(photos)}, hasKey: true, sheetUrl: '#'}},
                        {{id: 's0', name: 'NGÀY 19/9', label: '19/09/26', photos: 13, hasKey: true, sheetUrl: ''}}],
   getSessionInfo: () => JSON.parse(JSON.stringify(MOCK_INFO)),
-  keyStatus: () => [{{label: 'miễn phí #1', paid: false, ok: true, note: 'sẵn sàng'}},
+  keyStatus: () => [{{label: 'miễn phí #1', paid: false, ok: true, note: 'sẵn sàng', used: 132}},
                     {{label: 'miễn phí #2', paid: false, ok: false, note: 'hết hạn mức hôm nay (mở lại khoảng 14-15h)'}},
                     {{label: 'trả phí', paid: true, ok: true, note: 'sẵn sàng'}}],
   listFiles: () => JSON.parse(JSON.stringify(MOCK_FILES)),
