@@ -542,10 +542,11 @@ function imageOf_(fileId) {
 
 function readKey(sessionId) {
   requireUser_();
-  var keys = keyFiles_(DriveApp.getFolderById(sessionId));
+  var folder = DriveApp.getFolderById(sessionId), keys = keyFiles_(folder);
   if (!keys.length) throw new Error('Buổi này chưa có ảnh đáp án (key). Hãy tải key lên trước.');
   var r = callGemini_(buildKeyRequest(keys.map(function (k) { return imageOf_(k.getId()); })));
-  var key = normalizeKey(r.data);
+  var key = normalizeKey(r.data), kept = reuseKeyLayout_(key, loadState_(folder).key);
+  if (kept) { key = kept; key.reused = true; }
   key.costUsd = r.costUsd;
   key.paid = r.paid;
   key.keyLabel = r.keyLabel;

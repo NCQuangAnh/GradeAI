@@ -150,6 +150,8 @@
   table.review td.namecell input { font-weight: 600; }
   .del { border: none; background: none; color: var(--muted); padding: 4px 8px; font-size: 13px; font-weight: 500; }
   .del:hover { color: var(--pen); background: var(--pen-soft); }
+  .mini { border: none; background: none; color: var(--violet); padding: 4px 8px; font-size: 13px; font-weight: 600; }
+  .row > button.del, .row > button.mini { flex: 0 0 auto; min-width: 0; }  /* nút chữ nhỏ không chiếm chỗ ô nhập */
 
   #exportBox { position: sticky; bottom: 0; z-index: 3; background: var(--paper); padding: 12px 0 6px;
                border-top: 1px solid var(--rule); margin-top: 10px; box-shadow: 0 -8px 16px -12px rgba(30, 42, 68, .25); }
@@ -844,19 +846,25 @@ const WORD_PARTS = ['TỪ VỰNG', 'TỪ MỚI'];
 const KINDS = { word: 'như từ vựng (chính tả, nghĩa)', formula: 'đúng/sai cả công thức' };
 function partKind(p) { return p.kind || (WORD_PARTS.includes(p.part) ? 'word' : 'formula'); }
 function unitOf(part, kind) { return kind === 'word' ? 'từ' : (UNITS[part] || 'công thức'); }
+/** Đáp án cô đã xác nhận trước đó cho buổi này (lưu trong folder buổi), nếu có. */
+function savedKey() { return S.info && S.info.state && S.info.state.key; }
+
 function renderKey() {
   S.key.parts = S.key.parts.filter((p) => p.items.length);
   const total = S.key.parts.reduce((n, p) => n + p.items.filter((it) => String(it.en).trim()).length, 0);
   $('keyBox').innerHTML = `
     <h2>Đáp án AI đọc được: ${esc(S.key.topic)}</h2>
+    ${S.key.reused ? '<p class="alert">Đáp án đọc lại có đúng các mục như đáp án cô đã xác nhận, nên giữ nguyên cách chia phần, tên phần và cách chấm cũ.</p>' : ''}
     <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(', ')}</b>, tổng ${total} mục.
-      Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa.</p>
+      Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa;
+      hai khối nội dung bị gộp chung thì bấm <b>Tách</b> ở mục đầu của khối sau.</p>
     <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${partNameSelect(p, S.key.parts, `data-p="${pi}"`)}</h2>
       <label class="muted">Cách chấm <select class="kind" data-p="${pi}" style="width:auto">${Object.keys(KINDS).map((k) =>
         `<option value="${k}" ${partKind(p) === k ? 'selected' : ''}>${KINDS[k]}</option>`).join('')}</select></label>${
       p.items.map((it, ii) => `<div class="row" style="margin-bottom:6px">
         <input value="${esc(it.en)}" data-p="${pi}" data-i="${ii}" data-f="en" style="flex:2" placeholder="tiếng Anh / công thức">
         <input value="${esc(it.vi)}" data-p="${pi}" data-i="${ii}" data-f="vi" style="flex:3" placeholder="nghĩa / tên">
+        ${ii ? `<button class="mini split" data-p="${pi}" data-i="${ii}" type="button" title="Tách mục này và các mục sau thành phần mới">Tách</button>` : ''}
         <button class="del" data-p="${pi}" data-i="${ii}" type="button">Xóa</button></div>`).join('')}
       <button class="addItem" data-p="${pi}" type="button">+ Thêm mục ${esc(p.part.toLowerCase())}</button>`).join('')}
       <div class="row" style="margin-top:10px">
@@ -864,6 +872,7 @@ function renderKey() {
         <button id="addPart" type="button">+ Thêm phần</button></div></details>
     <div class="row" style="margin-top:10px">
       <button id="goGrade" class="primary" type="button" ${total ? '' : 'disabled'}>Đúng, chấm ${S.gradable.length} bài</button>
+      ${savedKey() && !S.key.reused ? '<button id="oldKey" type="button">Dùng lại đáp án cũ</button>' : ''}
       <button id="badKey" type="button">Sai đáp án, tải lại key</button>
     </div>`;
   $('keyBox').querySelectorAll('input[data-f]').forEach((el) => (el.oninput = () => {
@@ -880,6 +889,16 @@ function renderKey() {
   $('keyBox').querySelectorAll('button.del').forEach((b) => (b.onclick = () => {
     S.key.parts[+b.dataset.p].items.splice(+b.dataset.i, 1); reopen();
   }));
+  $('keyBox').querySelectorAll('button.split').forEach((b) => (b.onclick = () => {
+    const pi = +b.dataset.p, p = S.key.parts[pi], rest = p.items.splice(+b.dataset.i);
+    const used = S.key.parts.map((x) => x.part);
+    const part = PARTS.find((n) => !used.includes(n)) || 'PHẦN ' + (S.key.parts.length + 1), kind = partKind(p);
+    S.key.parts.splice(pi + 1, 0, { part, kind, unit: unitOf(part, kind), items: rest });
+    reopen();
+  }));
+  if ($('oldKey')) $('oldKey').onclick = () => {
+    S.key = Object.assign(JSON.parse(JSON.stringify(savedKey())), { reused: true }); renderKey();
+  };
   $('keyBox').querySelectorAll('button.addItem').forEach((b) => (b.onclick = () => {
     S.key.parts[+b.dataset.p].items.push({ en: '', vi: '' }); reopen();
   }));

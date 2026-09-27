@@ -234,6 +234,23 @@ function prepareKey(parts) {
   });
 }
 
+/**
+ * Đọc lại ảnh đáp án mà ra đúng các mục như đáp án cô đã xác nhận thì giữ nguyên đáp án đã xác nhận
+ * (cách chia phần, tên phần, cách chấm, mã mục và chữ cô đã sửa); mỗi lần đọc Gemini có thể chia phần khác.
+ * Trả về null nếu các mục khác nhau.
+ */
+function reuseKeyLayout_(fresh, saved) {
+  var sig = function (key) {
+    var list = [];
+    ((key && key.parts) || []).forEach(function (p) {
+      (p.items || []).forEach(function (it) { list.push(normKey_(it.en)); });
+    });
+    return list.sort().join('|');
+  };
+  if (!saved || !(saved.parts || []).length || sig(fresh) !== sig(saved)) return null;
+  return {topic: saved.topic || fresh.topic, parts: JSON.parse(JSON.stringify(saved.parts))};
+}
+
 /** Kết quả một ảnh -> các mục theo mã đáp án (hỗ trợ cả kết quả cũ dạng vocab/others). */
 function photoItems_(ph, keyParts) {
   if (ph.items) return ph.items;

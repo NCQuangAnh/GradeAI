@@ -165,6 +165,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
      phần trong ngoặc của đáp án như `(to sb)` không viết cũng được, nhãn em tự ghi đầu dòng (`O :`, `1.`) không tính.
    - **đúng/sai cả công thức**: dùng cho công thức dạng `S + V(s/es)`, câu gián tiếp, quy tắc trọng âm.
    AI tự chọn, cô chỉ cần đổi khi thấy chưa đúng. Học sinh viết khác thứ tự đáp án vẫn được chấm đúng mục.
+   AI gộp hai khối nội dung vào một phần (ví dụ cấu trúc V-ing và OSASCOMP): bấm **Tách** ở mục đầu của khối sau,
+   rồi chọn tên và cách chấm cho từng phần.
    **Tên phần** (tên cột trong bảng) chọn ở ô trên đầu mỗi phần: TỪ VỰNG, TỪ MỚI, CÔNG THỨC, CẤU TRÚC...
    Đã chấm rồi mới muốn đổi tên (ví dụ CẤU TRÚC thành TỪ MỚI): mở **Đáp án đang dùng** > chọn tên mới ở ô
    của phần đó. Cột trong bảng đổi theo, không chấm lại, không tốn lượt Gemini, các ô cô đã sửa giữ nguyên.
@@ -195,7 +197,9 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 - Xuất lại: file Sheet và ảnh bảng chấm được cập nhật đủ 10 bài.
 - Nếu đã thay ảnh đáp án, web báo và gợi ý đọc đáp án mới, chấm lại tất cả.
 - **Chấm lại tất cả** (nút cạnh "Xem / sửa bảng chấm"): chấm lại mọi ảnh bằng đáp án đang dùng, không đọc lại đáp án.
-  **Đọc lại đáp án và chấm lại tất cả** (trong "Đáp án đang dùng"): đọc lại ảnh đáp án rồi chấm lại.
+  Muốn chấm lại thì dùng nút này.
+  **Đọc lại đáp án và chấm lại tất cả** (trong "Đáp án đang dùng"): chỉ dùng khi ảnh đáp án đã thay. Đọc lại mà ra đúng
+  các mục cũ thì web giữ nguyên cách chia phần, tên phần và cách chấm cô đã xác nhận; khác thì có nút **Dùng lại đáp án cũ**.
   Cả hai lập lại bảng từ đầu (ô cô đã sửa sẽ mất); tên cô đã chọn cho từng ảnh được giữ nếu có trong danh sách lớp,
   tên tạm (như A, B, C) bị bỏ để AI ghép lại.
 - Dòng cô bấm **Xóa** (ví dụ ảnh chụp nhầm) thì ảnh đó không bị chấm lại nữa.

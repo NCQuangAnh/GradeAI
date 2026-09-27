@@ -49,7 +49,9 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   `O`/`sb`, `Uing`/`ling` đứng riêng = Ving (chữ V viết tay), phần trong ngoặc tùy chọn, bỏ nhãn đầu dòng "O :";
   `formula` = Gemini chấm phần công thức, dòng trùng đáp án theo cách so trên thì code tính đúng (`formulaOk_`)).
   Mục đáp án có nghĩa thì em phải đúng cả nghĩa, không có nghĩa thì chỉ chấm phần tiếng Anh (`needsMeaning_`); nghĩa chính
-  phải đủ ("buộc" thay "buộc tội" là sai), chữ viết tắt (lm, lmj, j, ko, đc, xl...) liệt kê trong GRADE_PROMPT. Mỗi mục có `id`
+  phải đủ ("buộc" thay "buộc tội" là sai), chữ viết tắt (lm, lmj, j, ko, đc, xl...) liệt kê trong GRADE_PROMPT.
+  Đọc lại đáp án ra đúng các mục đã xác nhận thì giữ đáp án cũ (`reuseKeyLayout_`); trình sửa đáp án có nút Tách phần.
+  Mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
   Đổi tên phần (cột) sau khi chấm: `renamePart` / `renamePartIn_`, không chấm lại. `TỪ MỚI` là tên phần do cô chọn
   (không có trong enum Gemini `PART_NAMES`), mặc định chấm như từ vựng và được tính chép phạt.

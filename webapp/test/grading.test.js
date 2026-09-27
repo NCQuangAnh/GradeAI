@@ -318,6 +318,21 @@ test('renaming a key part renames its column and keeps the teacher edits and ids
     'TỪ MỚI': { correct: 7, total: 8, wrongCount: 1 } }, 'TA9', PENALTY), 'từ viết sai x10 lần');
 });
 
+test('re-reading the same key keeps the confirmed parts, names, kinds and ids', () => {
+  const saved = { topic: 'V-ing', parts: plain(G.prepareKey([
+    { part: 'CÔNG THỨC', kind: 'formula', items: [{ en: 'admit + V-ing', vi: 'thừa nhận làm gì' }, { en: 'deny + V-ing', vi: 'phủ nhận' }] },
+    { part: 'TỪ MỚI', kind: 'word', items: [{ en: 'opinion', vi: 'quan điểm' }] }])) };
+  const merged = { topic: 'x', parts: plain(G.prepareKey([{ part: 'CẤU TRÚC', kind: 'word', items: [
+    { en: 'Admit + V-ing', vi: 'thừa nhận' }, { en: 'deny + V-ing', vi: 'phủ nhận' }, { en: 'opinion', vi: 'quan điểm' }] }])) };
+  const kept = plain(G.reuseKeyLayout_(merged, saved));
+  assert.deepEqual(kept.parts.map((p) => [p.part, p.kind, p.items.map((i) => i.id)]),
+    [['CÔNG THỨC', 'formula', ['1.1', '1.2']], ['TỪ MỚI', 'word', ['2.1']]]);
+  assert.equal(kept.parts[0].items[0].vi, 'thừa nhận làm gì');  // the teacher's confirmed text wins
+  const changed = plain(merged); changed.parts[0].items.pop();
+  assert.equal(G.reuseKeyLayout_(changed, saved), null);  // different items: show the new reading
+  assert.equal(G.reuseKeyLayout_(merged, null), null);
+});
+
 test('normalizeKey keeps each part kind and gives every item an id', () => {
   const k = plain(G.normalizeKey({ topic: 't', parts: [
     { part: 'CÔNG THỨC', kind: 'word', items: [{ en: 'admit + V-ing', vi: 'thừa nhận', numbered: true }] },
