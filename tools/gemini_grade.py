@@ -65,11 +65,21 @@ class Grade(BaseModel):
     items: list[Item]
 
 
-def api_key() -> str:
-    m = re.search(r"^GEMINI_API_KEY=(.+)$", (PROJECT / ".env").read_text(encoding="utf-8"), re.M)
-    if not m:
-        raise SystemExit("GEMINI_API_KEY not found in .env")
-    return m.group(1).strip()
+def api_keys() -> list[tuple[str, str, bool]]:
+    """(label, key, paid): free keys from GEMINI_FREE_KEYS first, then the paid GEMINI_API_KEY."""
+    env = (PROJECT / ".env").read_text(encoding="utf-8")
+    get = lambda name: (re.search(rf"^{name}=(.+)$", env, re.M) or [None, ""])[1].strip()
+    keys = [(f"miễn phí #{i + 1}", k.strip(), False)
+            for i, k in enumerate(get("GEMINI_FREE_KEYS").split(",")) if k.strip()]
+    if get("GEMINI_API_KEY"):
+        keys.append(("trả phí", get("GEMINI_API_KEY"), True))
+    if not keys:
+        raise SystemExit("No GEMINI_FREE_KEYS or GEMINI_API_KEY in .env")
+    return keys
+
+
+# Out of quota, key refused, model unavailable or Google hiccup: try the next key.
+NEXT_KEY_CODES = {401, 402, 403, 404, 429, 500, 502, 503, 504}
 
 
 def norm_item(s: str) -> str:
@@ -159,17 +169,27 @@ def main() -> None:
     d, mth = re.findall(r"\d+", args.date)[:2]
     folder = PROJECT / "data" / args.class_name.upper() / f"{int(d)}-{int(mth)}"
     truth = json.loads((folder / "result.json").read_text(encoding="utf-8"))
-    client = genai.Client(api_key=api_key())
+    keys, key_i = api_keys(), 0
     out_dir = folder / "gemini"
     out_dir.mkdir(exist_ok=True)
 
     summary, total_cost = [], 0.0
     for photo in args.photos:
-        try:
-            grade, cost = grade_photo(client, args.model, folder / "key.jpg", folder / "photos" / f"{photo}.jpg")
-        except errors.APIError as e:
-            raise SystemExit(f"Gemini API lỗi {e.code} ở ảnh {photo}: {e.message}")
-        total_cost += cost
+        while True:
+            if key_i >= len(keys):
+                raise SystemExit("Không còn key nào dùng được")
+            label, key, paid = keys[key_i]
+            try:
+                grade, cost = grade_photo(genai.Client(api_key=key), args.model,
+                                          folder / "key.jpg", folder / "photos" / f"{photo}.jpg")
+                break
+            except errors.APIError as e:
+                if e.code not in NEXT_KEY_CODES:
+                    raise SystemExit(f"Gemini API lỗi {e.code} ở ảnh {photo}: {e.message}")
+                print(f"key {label}: lỗi {e.code}, chuyển key tiếp", file=sys.stderr)
+                key_i += 1
+        if paid:
+            total_cost += cost
         (out_dir / f"{photo}.json").write_text(grade.model_dump_json(indent=2), encoding="utf-8")
 
         st = next((s for s in truth["students"] if photo in s.get("photos", [])), None)
@@ -194,7 +214,7 @@ def main() -> None:
         print(f"{photo:<10}{name:<14}{g:>7}{t:>10}{diff:>10}")
     exact = sum(1 for *_, diff in summary if diff == 0)
     print(f"\nKhớp hoàn toàn: {exact}/{len(summary)} bài. Model {args.model}, "
-          f"tổng chi phí khoảng ${total_cost:.4f}. Kết quả chi tiết: {out_dir}")
+          f"chi phí key trả phí khoảng ${total_cost:.4f}. Kết quả chi tiết: {out_dir}")
 
 
 if __name__ == "__main__":

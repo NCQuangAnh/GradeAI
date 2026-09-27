@@ -241,20 +241,29 @@ function writtenIds_(ph) {
     .map(function (it) { return it.id; });
 }
 
+/** Ảnh chưa ghép được tên được gom theo tên ghi trên giấy ("Duy" và "Duy" là một em); giấy không tên thì ''. */
+function paperGroup_(ph) {
+  if (ph.paperGroup) return ph.paperGroup;
+  var w = stripAccents(ph.writtenName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return w ? 'giay:' + w : '';
+}
+
 /**
  * Mặt sau tờ bài thường không ghi tên: ảnh không có tên được ghép với ảnh chụp ngay trước nó
  * (tên file theo thứ tự chụp), nếu hai ảnh gần như không trùng mục nào (2 mặt của cùng một bài).
+ * Ảnh trước chưa nhận ra tên thì mặt sau vào cùng nhóm với nó, cô chọn tên một lần cho cả hai.
  */
 function pairBackSides_(photos) {
   var sorted = photos.slice().sort(function (a, b) { return String(a.fileName).localeCompare(String(b.fileName)); });
   sorted.forEach(function (ph, i) {
     if (ph.matchedName || String(ph.writtenName || '').trim() || i === 0) return;
-    var prev = sorted[i - 1];
-    if (!prev.matchedName) return;
+    var prev = sorted[i - 1], prevGroup = prev.matchedName ? '' : paperGroup_(prev);
+    if (!prev.matchedName && !prevGroup) return;
     var mine = writtenIds_(ph), theirs = writtenIds_(prev);
     var overlap = mine.filter(function (id) { return theirs.indexOf(id) >= 0; }).length;
     if (mine.length && overlap <= 2) {
-      ph.matchedName = prev.matchedName;
+      if (prev.matchedName) ph.matchedName = prev.matchedName;
+      else ph.paperGroup = prevGroup;
       ph.pairedWith = prev.fileName;
     }
   });
@@ -295,10 +304,14 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
     copy.items = photoItems_(ph, keyParts);
     return copy;
   }));
-  var byName = {}, unmatched = [];
+  var byName = {}, groups = {}, unmatched = [];
   photos.forEach(function (ph) {
-    if (ph.matchedName) (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph);
-    else unmatched.push(ph);
+    if (ph.matchedName) { (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph); return; }
+    var g = paperGroup_(ph);
+    if (g && groups[g]) { groups[g].push(ph); return; }
+    var list = [ph];
+    if (g) groups[g] = list;
+    unmatched.push(list);
   });
 
   function gradeRow(name, photos) {
@@ -380,11 +393,11 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
   Object.keys(byName).forEach(function (name) {
     if (roster.indexOf(name) < 0) rows.push(gradeRow(name, byName[name]));
   });
-  unmatched.forEach(function (ph) {
-    var row = gradeRow('', [ph]);
+  unmatched.forEach(function (list) {
+    var row = gradeRow('', list);
     row.status = 'unmatched';
     row.flag = true;
-    row.notes.unshift('Chưa ghép được tên (giấy ghi "' + (ph.writtenName || '?') + '") - cô chọn tên');
+    row.notes.unshift('Chưa ghép được tên (giấy ghi "' + (list[0].writtenName || '?') + '") - cô chọn tên');
     rows.push(row);
   });
   return {columns: columns, rows: rows};

@@ -175,6 +175,16 @@ test('a two-sided paper (back side without a name) is one student, word-style pa
   assert.equal(khoi.flag, true);  // auto-paired back side: the teacher checks it
   const stray = t.rows.filter((r) => r.status === 'unmatched');
   assert.deepEqual(stray.map((r) => r.photos[0].id), ['bai_4']);  // overlaps Việt's paper: not a back side
+
+  // a name not in the roster: both sides still end up in one row, the teacher picks the name once
+  const t2 = plain(G.assembleSession(keyParts, ROSTER, [
+    photo('bai_5', 'Duy', [w('1.1', 'admit + Ving'), w('1.2', 'deny + Ving')]),
+    photo('bai_6', 'Duy', [w('1.3', 'advise O to V'), w('2.1', 'opinion', { correct: true })]),
+    photo('bai_7', 'Zed', [w('1.1', 'admit + Ving')]),
+    photo('bai_8', '', [w('2.2', 'size', { correct: true })]),  // back side of Zed's paper
+  ], 'TA9', PENALTY));
+  const groups = t2.rows.filter((r) => r.status === 'unmatched').map((r) => r.photos.map((p) => p.id));
+  assert.deepEqual(groups, [['bai_5', 'bai_6'], ['bai_7', 'bai_8']]);
 });
 
 test('grading more photos later keeps what the teacher already reviewed', () => {

@@ -48,7 +48,10 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   `O`/`sb`, phần trong ngoặc tùy chọn, bỏ nhãn đầu dòng "O :"; `formula` = Gemini chấm đúng/sai) và mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
 - Bài 2 mặt: `pairBackSides_` ghép ảnh không tên với ảnh ngay trước (theo tên file = thời điểm chụp `takenAt`) nếu
-  trùng ≤ 2 mục; dòng đó tô vàng.
+  trùng ≤ 2 mục; dòng đó tô vàng. Ảnh chưa nhận ra tên gom theo tên ghi trên giấy (`paperGroup_`); cô chọn tên trùng
+  dòng đã có ảnh thì web lưu rồi `buildTable` để gộp (`mergeRowsByName`).
+- Test gọi Gemini thật (`gemini_live.js`, `tools/gemini_grade.py`) dùng `GEMINI_FREE_KEYS` trong `.env` trước, hết lượt mới
+  sang `GEMINI_API_KEY` (`webapp/test/gemini_keys.js`).
 - Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.
   "Chấm lại tất cả" bỏ các tên cô đặt tạm không có trong danh sách.
 - Xem/xóa ảnh: `listFiles`, `getThumbs`, `getImage`, `deleteFile` (chuyển vào Thùng rác, bỏ kết quả, lập lại bảng).
@@ -67,7 +70,7 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 
 ## Thử nghiệm Gemini API
 
-- Môi trường riêng: `.venv` (google-genai, openpyxl, Pillow). Key trong `.env` (`GEMINI_API_KEY`), không commit.
+- Môi trường riêng: `.venv` (google-genai, openpyxl, Pillow). Key trong `.env` (`GEMINI_FREE_KEYS`, `GEMINI_API_KEY`), không commit.
 - `.venv/Scripts/python tools/gemini_grade.py TA6 22/9 IMG_7458 [--model ...]`: chấm 1 ảnh, so với
   `result.json` đã duyệt, in số token và chi phí.
 - `gemini-2.5-flash-lite` trả 404 cho tài khoản mới (27/09/2026); mặc định dùng `gemini-3.1-flash-lite`.

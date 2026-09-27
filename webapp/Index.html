@@ -1031,13 +1031,27 @@ function onCellInput(e) {
   saveTableSoon(e.target.tagName === 'SELECT' ? 0 : 2000);
 }
 
-/** Cô chọn tên cho một ảnh: bỏ dòng "không có ảnh" trống của cùng em đó để khỏi trùng tên. */
+/**
+ * Cô chọn tên cho một ảnh: bỏ dòng "không có ảnh" trống của cùng em đó để khỏi trùng tên.
+ * Em đó đã có dòng chấm từ ảnh khác (ví dụ mặt kia của bài) thì gộp ảnh vào một dòng và chấm lại.
+ */
 function onNameChange(e) {
-  const i = +e.target.dataset.r, name = e.target.value.trim();
+  const i = +e.target.dataset.r, name = e.target.value.trim(), row = S.table.rows[i];
   if (!name) return;
-  const dup = S.table.rows.findIndex((r, k) => k !== i && String(r.name).trim() === name && r.status === 'missing' &&
+  const withPhotos = S.table.rows.some((r) => r !== row && String(r.name).trim() === name && (r.photos || []).length);
+  if (withPhotos && (row.photos || []).length) return mergeRowsByName();
+  const dup = S.table.rows.findIndex((r) => r !== row && String(r.name).trim() === name && r.status === 'missing' &&
     !Object.values(r.values || {}).some((v) => String(v).trim()));
   if (dup >= 0) { S.table.rows.splice(dup, 1); markEdited(); renderTable(); saveTableSoon(0); }
+}
+
+async function mergeRowsByName() {
+  saveTableSoon(0);
+  await flushSave();  // lưu tên cô vừa chọn cho từng ảnh, lập lại bảng sẽ gộp các ảnh cùng tên
+  try { await run('buildTable', S.sesId); } catch (e) { return toast('Chưa gộp được: ' + errMsg(e), true); }
+  await renderGradeTop();
+  if (S.table) renderTable();
+  toast('Đã gộp các ảnh của em vào một dòng và chấm lại');
 }
 
 function tablePayload(t) {
