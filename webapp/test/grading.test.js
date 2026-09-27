@@ -145,6 +145,7 @@ test('the name Gemini guesses is accepted only if it shares a word with the pape
 test('verb patterns are spelled with the usual notations (Ving, doing, O, sb, optional parts)', () => {
   assert.equal(G.letterErrors('deny + ving', 'deny + V-ing'), 0);
   assert.equal(G.letterErrors('deny doing', 'deny + V-ing'), 0);
+  assert.equal(G.letterErrors('congratulate sb on + ling', 'congratulate sb on + V-ing'), 0);  // handwritten V read as l
   assert.equal(G.letterErrors('accuse O of Ving', 'accuse sb of V-ing'), 0);
   assert.equal(G.letterErrors('apologize for Ving', 'apologize (to sb) for + V-ing'), 0);
   assert.equal(G.letterErrors('object on + ving', 'object to + V-ing'), 2);
@@ -250,6 +251,21 @@ test('classifyGeminiError decides how to rotate keys', () => {
   assert.equal(G.classifyGeminiError(404, { error: { code: 404, message: 'no longer available to new users' } }).kind, 'daily');
   assert.equal(G.classifyGeminiError(503, { error: { code: 503, message: 'overloaded' } }).kind, 'retry');
   assert.equal(G.classifyGeminiError(400, { error: { code: 400, message: 'Invalid JSON payload' } }).kind, 'fatal');
+});
+
+test('a formula written like the key (other notation, no spaces) counts as right even if Gemini said wrong', () => {
+  const keyParts = G.prepareKey([{ part: 'CÔNG THỨC', kind: 'formula', items: [
+    { en: 'accuse sb of + V-ing', vi: 'buộc tội ai vì làm gì' }, { en: 'apologize (to sb) for + V-ing', vi: 'xin lỗi' },
+    { en: 'deny + V-ing', vi: 'phủ nhận' }, { en: 'admit + V-ing', vi: 'thừa nhận' }, { en: 'S + V(s/es)', vi: '' }] }]);
+  const it = (id, en, meaning_ok) => ({ id, written_en: en, written_vi: 'x', meaning_ok, correct: false });
+  const ph = Object.assign(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, unclear: [], items: [
+    it('1.1', 'accuse sbof Ving', true), it('1.2', 'apologize for + Ving', true),
+    it('1.3', 'deny V-ing', false),        // wrong meaning: still wrong
+    it('1.4', 'admit + Vng', true),        // a letter missing: Gemini decides
+    it('1.5', 's + v(s/es)', false)] }, keyParts, ROSTER), { fileName: 'a.jpg', url: '' });
+  const row = plain(G.assembleSession(keyParts, ROSTER, [ph], 'TA9', PENALTY)).rows.find((r) => r.name === 'Tú Linh');
+  assert.equal(row.values['CÔNG THỨC'], '3/5 công thức');
+  assert.ok(row.notes.some((n) => n.includes('deny')) && row.notes.some((n) => n.includes('admit')));
 });
 
 test('saving a new class roster re-matches names without regrading', () => {

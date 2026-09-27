@@ -31,12 +31,13 @@ function stripAccents(s) {
 /**
  * Cách viết tương đương trong cấu trúc động từ không tính là lỗi:
  * O = sb = somebody = someone, sth = something, V-ing = Ving = doing.
+ * Chữ V viết tay hay bị đọc thành U hoặc L: "Uing", "ling" đứng riêng cũng là Ving.
  */
 function notationNorm_(s) {
   var t = ' ' + String(s || '').toLowerCase().replace(/[()\[\]]/g, ' ') + ' ';
   t = t.replace(/(^|[^a-z])(somebody|someone|smb|sb|o)(?=[^a-z]|$)/g, '$1 sb ')
        .replace(/(^|[^a-z])(something|sth)(?=[^a-z]|$)/g, '$1 sth ')
-       .replace(/(^|[^a-z])(v\s*[-_.]?\s*ing|doing)(?=[^a-z]|$)/g, '$1 ving ');
+       .replace(/(^|[^a-z])([vul]\s*[-_.]?\s*ing|doing)(?=[^a-z]|$)/g, '$1 ving ');
   return normLetters(t);
 }
 
@@ -284,6 +285,16 @@ function pairBackSides_(photos) {
   return sorted;
 }
 
+/**
+ * Công thức em viết trùng đáp án khi bỏ qua cách viết (Ving = V-ing = doing, O = sb, dấu cách, dấu +, hoa thường,
+ * phần trong ngoặc như "(to sb)") và nghĩa đúng thì tính đúng, dù Gemini chấm sai ("accuse sbof Ving").
+ */
+function sameAsKey_(it, k) {
+  if (!String(it.written_en || '').trim()) return false;
+  if (String(k.vi || '').trim() && !it.meaning_ok) return false;
+  return letterErrors(it.written_en, k.en) === 0;
+}
+
 /** Gộp các ảnh của một em: mỗi mục lấy bản em thực sự viết (ưu tiên bản đúng). */
 function mergeStudent_(photos) {
   var byId = {};
@@ -354,10 +365,13 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
           if (v.verdict === 'wrong') { wrongCount++; wrongWords.push(k.en); }
         } else {
           var it = merged[k.id] || {};
-          if (it.correct) return;
+          if (it.correct || sameAsKey_(it, k)) return;
           wrongCount++;
+          var badMeaning = String(k.vi || '').trim() && String(it.written_vi || '').trim() && !it.meaning_ok;
           notes.push(kp.part.toLowerCase() + ' "' + k.en + '" - ' +
-            (String(it.written_en || '').trim() ? "em viết '" + it.written_en + "'" : 'không viết') + (it.note ? ' (' + it.note + ')' : ''));
+            (String(it.written_en || '').trim() ? "em viết '" + it.written_en + "'" : 'không viết') +
+            (badMeaning ? " - nghĩa '" + it.written_vi + "' chưa đúng (đáp án: " + k.vi + ')' : '') +
+            (it.note ? ' (' + it.note + ')' : ''));
         }
       });
       parts[kp.part] = {correct: kp.items.length - wrongCount, total: kp.items.length, wrongCount: wrongCount};

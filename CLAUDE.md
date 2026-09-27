@@ -45,7 +45,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Kết quả mỗi buổi lưu ở `ket_qua_cham.json` trong folder buổi (đáp án đã xác nhận, kết quả từng ảnh, tên cô chọn,
   ảnh bị xóa, bảng đang duyệt). Chấm thêm ảnh chỉ chấm ảnh mới; `mergeTables` giữ các dòng cô đã sửa.
 - Đáp án: mỗi phần có `kind` (`word` = "cụm : nghĩa", code chấm chính tả bằng `decideVocab`, hiểu `Ving`/`V-ing`/`doing`,
-  `O`/`sb`, phần trong ngoặc tùy chọn, bỏ nhãn đầu dòng "O :"; `formula` = Gemini chấm đúng/sai) và mỗi mục có `id`
+  `O`/`sb`, `Uing`/`ling` đứng riêng = Ving (chữ V viết tay), phần trong ngoặc tùy chọn, bỏ nhãn đầu dòng "O :";
+  `formula` = Gemini chấm đúng/sai, nhưng dòng trùng đáp án theo cách so trên và nghĩa đúng thì code tính đúng (`sameAsKey_`)) và mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
   Đổi tên phần (cột) sau khi chấm: `renamePart` / `renamePartIn_`, không chấm lại. `TỪ MỚI` là tên phần do cô chọn
   (không có trong enum Gemini `PART_NAMES`), mặc định chấm như từ vựng và được tính chép phạt.
