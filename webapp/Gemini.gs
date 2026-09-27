@@ -14,38 +14,47 @@ var KEY_PROMPT = [
   '- Chú thích trong ngoặc không phải mục riêng: "bên cạnh ( = by )" thì by KHÔNG phải một mục;',
   '  "(n)", "(v)", phiên âm như "/e/", "/i:/" cũng bỏ.',
   '- Chia theo phần: TỪ VỰNG (từ: nghĩa), CÔNG THỨC / CẤU TRÚC (công thức ngữ pháp, ví dụ HTĐ: S + V(s/es)),',
-  '  CÂU GIÁN TIẾP, QUY TẮC TRỌNG ÂM.',
+  '  CÂU GIÁN TIẾP, QUY TẮC TRỌNG ÂM. Đáp án có nhiều khối nội dung khác nhau (mỗi khối một tiêu đề hoặc chủ đề,',
+  '  ví dụ các cấu trúc V-ing rồi tới trật tự tính từ OSASCOMP) thì mỗi khối là một phần riêng, tên phần khác nhau.',
   '- TỪ VỰNG: mỗi từ/cụm tiếng Anh là 1 mục, en = từ tiếng Anh (bỏ (n), (v), (adj)), vi = nghĩa tiếng Việt.',
   '  Dòng "A = B : nghĩa" tách thành 2 mục A và B cùng nghĩa, cùng numbered. Ví dụ "Next to = beside : bên cạnh" -> 2 mục.',
   '- Phần khác: mỗi công thức/quy tắc là 1 mục, en = nội dung công thức/quy tắc, vi = tên hoặc giải thích.',
+  '- kind của mỗi phần: "word" nếu mỗi mục là từ, cụm từ hoặc cấu trúc động từ kèm nghĩa tiếng Việt',
+  '  (ví dụ "admit + V-ing : thừa nhận làm gì", "advise O to V : khuyên ai làm gì", "opinion : quan điểm");',
+  '  "formula" nếu là công thức ngữ pháp dạng S + V... (thì, câu bị động, câu gián tiếp) hoặc quy tắc trọng âm.',
   '- topic: tóm tắt chủ đề bài trong vài chữ (ví dụ "giới từ chỉ vị trí").'
 ].join('\n');
 
 var GRADE_PROMPT = [
   'Bạn đọc bài làm viết tay của MỘT học sinh Việt Nam (ảnh đính kèm) và so với đáp án bên dưới.',
+  'Ảnh có thể chỉ là MỘT MẶT của bài (mặt kia ở ảnh khác): chỉ điền các mục có trên ảnh này, mục không có thì để rỗng.',
   '',
   'BƯỚC 1 - CHÉP LẠI từng dòng học sinh viết, ĐÚNG TỪNG CHỮ CÁI như trên giấy.',
   'TUYỆT ĐỐI KHÔNG tự sửa lỗi chính tả: em viết "bellow" thì chép "bellow", không phải "below".',
   'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại.',
   'Chỗ nào có tẩy xóa hoặc khó đọc mà ảnh hưởng tới kết quả thì ghi vào unclear (ví dụ "inside: chữ ngoài có thể bị gạch").',
   '',
-  'BƯỚC 2 - GHÉP với đáp án. vocab: đúng 1 phần tử cho MỖI mục TỪ VỰNG của đáp án, theo đúng thứ tự.',
+  'BƯỚC 2 - GHÉP với đáp án THEO NỘI DUNG, KHÔNG theo thứ tự dòng. items: đúng 1 phần tử cho MỖI mã mục của',
+  'đáp án (id như "1.3"). Học sinh thường viết khác thứ tự đáp án: dòng "deny + ving : phủ nhận" là mục',
+  '"deny + V-ing" dù em viết ở dòng thứ mấy. Không tìm thấy dòng nào của mục đó trên ảnh thì written_en rỗng.',
   'Dòng dạng "A = B : nghĩa" nghĩa là A và B DÙNG CHUNG nghĩa cuối dòng: "next to = Besind : bên cạnh"',
   'thì next to có written_en "next to", beside có written_en "Besind", cả hai written_vi "bên cạnh".',
-  'Chữ tiếng Anh em viết (kể cả viết sai) KHÔNG BAO GIỜ là nghĩa tiếng Việt. Mục em không viết: written_en rỗng.',
+  'Chữ tiếng Anh em viết (kể cả viết sai) KHÔNG BAO GIỜ là nghĩa tiếng Việt.',
   '',
-  'BƯỚC 3 - CHẤM NGHĨA: meaning_ok = true nếu nghĩa tiếng Việt em viết đúng nghĩa của mục (không cần giống',
-  'chữ đáp án, lỗi dấu nhỏ không sao). Thiếu nghĩa hoặc sai nghĩa là false.',
-  'KHÔNG chấm chính tả tiếng Anh - chương trình tự làm.',
-  'other_word = true chỉ khi em thay hẳn bằng một từ tiếng Anh có thật mang nghĩa khác, do hiểu sai từ',
-  '(ví dụ "site" thay "side" trong outside/inside/beside). Viết sai chữ cái mà không thành từ có thật',
-  '("Besind", "Behinh"), hoặc viết nhầm một chữ do nét chữ ("For from" thay "far from") thì là false.',
+  'BƯỚC 3 - CHẤM:',
+  '- Phần loại word (từ, cụm từ, cấu trúc kèm nghĩa): written_en = phần tiếng Anh em viết (nguyên văn, bỏ nhãn',
+  '  em tự thêm ở đầu dòng như số thứ tự hay "O :" của OSASCOMP), written_vi = nghĩa em viết (kể cả nghĩa trong ngoặc).',
+  '  meaning_ok = true nếu nghĩa tiếng Việt đúng nghĩa của mục (không cần giống chữ đáp án, lỗi dấu nhỏ không sao). Thiếu nghĩa hoặc sai nghĩa là false.',
+  '  KHÔNG chấm chính tả tiếng Anh - chương trình tự làm. other_word = true chỉ khi em thay hẳn bằng một từ',
+  '  tiếng Anh có thật mang nghĩa khác, do hiểu sai từ (ví dụ "site" thay "side" trong outside/inside/beside).',
+  '  Viết sai chữ cái mà không thành từ có thật ("Besind", "Behinh"), hoặc viết nhầm một chữ do nét chữ',
+  '  ("For from" thay "far from") thì là false.',
+  '- Phần loại formula (công thức, câu gián tiếp, quy tắc trọng âm): written_en = công thức em viết,',
+  '  correct = true nếu em viết đúng đủ thành phần, đúng thứ tự, đúng dạng động từ. Sai một thành phần là sai.',
   '',
-  'CÁC PHẦN KHÁC (công thức, câu gián tiếp, quy tắc trọng âm): others có đúng 1 phần tử cho mỗi mục,',
-  'correct = true nếu em viết đúng đủ thành phần, đúng thứ tự, đúng dạng động từ. Sai một thành phần là sai.',
-  '',
-  'TÊN: written_name = tên ghi trên giấy, nguyên văn. matched_name = tên trong DANH SÁCH LỚP ứng với tên đó',
-  '(tên viết tắt như "K.Vy", "LQMai", chỉ tên cuối vẫn ghép được); không chắc thì để rỗng.',
+  'TÊN: written_name = tên ghi trên giấy, nguyên văn; giấy không có tên (thường là mặt sau) thì để rỗng, KHÔNG đoán.',
+  'matched_name = tên trong DANH SÁCH LỚP ứng với tên đó (tên viết tắt như "K.Vy", "LQMai", chỉ tên cuối vẫn',
+  'ghép được); không chắc hoặc giấy không có tên thì để rỗng.',
   'key_matches = false nếu bài làm rõ ràng là chủ đề khác đáp án (bài của buổi hoặc lớp khác).'
 ].join('\n');
 
@@ -58,13 +67,14 @@ function keySchema_() {
         type: 'OBJECT',
         properties: {
           part: {type: 'STRING', format: 'enum', 'enum': PART_NAMES},
+          kind: {type: 'STRING', format: 'enum', 'enum': ['word', 'formula']},
           items: {type: 'ARRAY', items: {
             type: 'OBJECT',
             properties: {en: {type: 'STRING'}, vi: {type: 'STRING'}, numbered: {type: 'BOOLEAN'}},
             required: ['en', 'vi', 'numbered']
           }}
         },
-        required: ['part', 'items']
+        required: ['part', 'kind', 'items']
       }}
     },
     required: ['topic', 'parts']
@@ -78,25 +88,18 @@ function gradeSchema_() {
       written_name: {type: 'STRING'},
       matched_name: {type: 'STRING'},
       key_matches: {type: 'BOOLEAN'},
-      vocab: {type: 'ARRAY', items: {
+      items: {type: 'ARRAY', items: {
         type: 'OBJECT',
         properties: {
-          key_en: {type: 'STRING'}, written_en: {type: 'STRING'}, written_vi: {type: 'STRING'},
-          meaning_ok: {type: 'BOOLEAN'}, other_word: {type: 'BOOLEAN'}
+          id: {type: 'STRING'}, written_en: {type: 'STRING'}, written_vi: {type: 'STRING'},
+          meaning_ok: {type: 'BOOLEAN'}, other_word: {type: 'BOOLEAN'}, correct: {type: 'BOOLEAN'},
+          note: {type: 'STRING'}
         },
-        required: ['key_en', 'written_en', 'written_vi', 'meaning_ok', 'other_word']
-      }},
-      others: {type: 'ARRAY', items: {
-        type: 'OBJECT',
-        properties: {
-          part: {type: 'STRING'}, key_text: {type: 'STRING'}, written: {type: 'STRING'},
-          correct: {type: 'BOOLEAN'}, note: {type: 'STRING'}
-        },
-        required: ['part', 'key_text', 'written', 'correct']
+        required: ['id', 'written_en', 'written_vi', 'meaning_ok', 'other_word', 'correct']
       }},
       unclear: {type: 'ARRAY', items: {type: 'STRING'}}
     },
-    required: ['written_name', 'matched_name', 'key_matches', 'vocab', 'others', 'unclear']
+    required: ['written_name', 'matched_name', 'key_matches', 'items', 'unclear']
   };
 }
 
@@ -113,12 +116,12 @@ function buildKeyRequest(keyImages) {
 }
 
 function buildGradeRequest(keyParts, roster, photo) {
-  var key = keyParts.map(function (p) {
-    return '[' + p.part + ']\n' + p.items.map(function (it, i) {
-      return (i + 1) + '. ' + it.en + ' : ' + it.vi;
+  var key = prepareKey(keyParts).map(function (p) {
+    return '[' + p.part + ' - loại ' + p.kind + ']\n' + p.items.map(function (it) {
+      return it.id + '  ' + it.en + ' : ' + it.vi;
     }).join('\n');
   }).join('\n\n');
-  var text = GRADE_PROMPT + '\n\nĐÁP ÁN:\n' + key + '\n\nDANH SÁCH LỚP:\n' + roster.join(', ');
+  var text = GRADE_PROMPT + '\n\nĐÁP ÁN (mã mục, nội dung):\n' + key + '\n\nDANH SÁCH LỚP:\n' + roster.join(', ');
   return {
     contents: [{role: 'user', parts: [{text: text}, imagePart_(photo)]}],
     generationConfig: {responseMimeType: 'application/json', responseSchema: gradeSchema_(), temperature: 0}
@@ -178,18 +181,18 @@ function parseGeminiResponse(json) {
 }
 
 /**
- * Clean up the key Gemini read: merge repeated parts, add units, drop empty items.
+ * Clean up the key Gemini read: merge repeated parts, drop empty items, add kind/unit/ids.
  * If the key has a numbered list, lines without a number are headings and are dropped
  * (done here, not by the prompt, because the model does not follow that rule reliably).
  */
 function normalizeKey(data) {
-  var byPart = {}, order = [];
+  var byPart = {}, order = [], kinds = {};
   var anyNumbered = (data.parts || []).some(function (p) {
     return (p.items || []).some(function (it) { return it.numbered === true; });
   });
   (data.parts || []).forEach(function (p) {
     var name = PART_NAMES.indexOf(p.part) >= 0 ? p.part : 'CÔNG THỨC';
-    if (!byPart[name]) { byPart[name] = []; order.push(name); }
+    if (!byPart[name]) { byPart[name] = []; order.push(name); kinds[name] = p.kind; }
     (p.items || []).forEach(function (it) {
       if (anyNumbered && it.numbered !== true) return;
       if (String(it.en || '').trim()) byPart[name].push({en: String(it.en).trim(), vi: String(it.vi || '').trim()});
@@ -198,44 +201,41 @@ function normalizeKey(data) {
   order.sort(function (a, b) { return PART_NAMES.indexOf(a) - PART_NAMES.indexOf(b); });
   return {
     topic: data.topic || '',
-    parts: order.filter(function (n) { return byPart[n].length; })
-      .map(function (n) { return {part: n, unit: unitFor(n), items: byPart[n]}; })
+    parts: prepareKey(order.filter(function (n) { return byPart[n].length; })
+      .map(function (n) { return {part: n, kind: kinds[n], items: byPart[n]}; }))
   };
 }
 
 /**
- * Align Gemini's grading to the key (one entry per key item, in key order) and match the name.
- * Returns the per-photo result used by assembleSession.
+ * Map Gemini's grading to the key by item id (never by position or part name - the model
+ * sometimes puts row numbers there) and match the name. Returns the per-photo result used by assembleSession.
  */
 function normalizeGrade(data, keyParts, roster) {
-  var vocabKey = [], others = [];
-  keyParts.forEach(function (p) {
-    if (p.part === VOCAB) vocabKey = p.items;
-  });
   var got = {};
-  (data.vocab || []).forEach(function (it) { got[normKey_(it.key_en)] = got[normKey_(it.key_en)] || it; });
-  var vocab = vocabKey.map(function (k, i) {
-    var it = got[normKey_(k.en)] || (data.vocab || [])[i] || {};
-    return {key_en: k.en, written_en: it.written_en || '', written_vi: it.written_vi || '',
-            meaning_ok: !!it.meaning_ok, other_word: !!it.other_word};
+  (data.items || []).forEach(function (it) {
+    var id = String(it.id || '').trim().replace(/^m[uụ]c\s*/i, '');
+    if (id && !got[id]) got[id] = it;
   });
-  keyParts.forEach(function (p) {
-    if (p.part === VOCAB) return;
-    var mine = (data.others || []).filter(function (o) { return normKey_(o.part) === normKey_(p.part); });
-    p.items.forEach(function (k, i) {
-      var o = mine.filter(function (x) { return normKey_(x.key_text) === normKey_(k.en); })[0] || mine[i] || {};
-      others.push({part: p.part, key_text: k.en, written: o.written || '', correct: !!o.correct, note: o.note || ''});
+  var items = [];
+  prepareKey(keyParts).forEach(function (p) {
+    p.items.forEach(function (k) {
+      var it = got[k.id] || {};
+      items.push({id: k.id, written_en: String(it.written_en || '').trim(), written_vi: String(it.written_vi || '').trim(),
+                  meaning_ok: !!it.meaning_ok, other_word: !!it.other_word, correct: !!it.correct, note: it.note || ''});
     });
   });
-  var matched = matchName(data.written_name, roster);
-  if (!matched && roster.indexOf(data.matched_name) >= 0) matched = data.matched_name;
-  var empty = vocab.filter(function (v) { return !String(v.written_en).trim(); }).length;
+  var written = String(data.written_name || '').trim();
+  var matched = matchName(written, roster);
+  // tên AI đoán chỉ nhận khi giấy có tên và có chung ít nhất một chữ (tránh "T.Vy" thành "Minh Khôi")
+  if (!matched && written && roster.indexOf(data.matched_name) >= 0 && namesOverlap(written, data.matched_name)) {
+    matched = data.matched_name;
+  }
+  var any = items.some(function (it) { return it.written_en; });
   return {
-    writtenName: data.written_name || '',
+    writtenName: written,
     matchedName: matched,
-    keyMatches: data.key_matches !== false && !(vocab.length && empty / vocab.length >= 0.7),
-    vocab: vocab,
-    others: others,
+    keyMatches: data.key_matches !== false && (any || !items.length),
+    items: items,
     unclear: data.unclear || []
   };
 }

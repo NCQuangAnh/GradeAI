@@ -44,6 +44,13 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   (trả phí). Trạng thái hết lượt lưu ở `KEY_STATE`, reset theo ngày giờ Thái Bình Dương. Phân loại lỗi: `classifyGeminiError`.
 - Kết quả mỗi buổi lưu ở `ket_qua_cham.json` trong folder buổi (đáp án đã xác nhận, kết quả từng ảnh, tên cô chọn,
   ảnh bị xóa, bảng đang duyệt). Chấm thêm ảnh chỉ chấm ảnh mới; `mergeTables` giữ các dòng cô đã sửa.
+- Đáp án: mỗi phần có `kind` (`word` = "cụm : nghĩa", code chấm chính tả bằng `decideVocab`, hiểu `Ving`/`V-ing`/`doing`,
+  `O`/`sb`, phần trong ngoặc tùy chọn, bỏ nhãn đầu dòng "O :"; `formula` = Gemini chấm đúng/sai) và mỗi mục có `id`
+  ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
+- Bài 2 mặt: `pairBackSides_` ghép ảnh không tên với ảnh ngay trước (theo tên file = thời điểm chụp `takenAt`) nếu
+  trùng ≤ 2 mục; dòng đó tô vàng.
+- Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.
+  "Chấm lại tất cả" bỏ các tên cô đặt tạm không có trong danh sách.
 - Xem/xóa ảnh: `listFiles`, `getThumbs`, `getImage`, `deleteFile` (chuyển vào Thùng rác, bỏ kết quả, lập lại bảng).
   Mọi chỗ liệt kê file/folder dùng `liveFiles_` / `searchFolders("trashed = false")` để bỏ qua Thùng rác.
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.

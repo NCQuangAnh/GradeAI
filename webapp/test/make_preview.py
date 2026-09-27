@@ -74,6 +74,14 @@ const MOCK = {{
   getThumbs: (ids) => ids.map((id) => ({{id, src: 'th_' + id + '.jpg'}})),
   getImage: (id) => ({{src: 'full_' + id + '.jpg', mime: 'image/jpeg'}}),
   saveTable: () => true,
+  saveClassRoster: (id, names) => {{ MOCK_INFO.roster = names; return names; }},
+  buildTable: () => MOCK_INFO.state.table,
+  saveKey: (id, key) => ({{topic: key.topic, parts: key.parts}}),
+  gradePhoto: () => ({{keyMatches: true, costUsd: 0.0003, paid: false, keyLabel: 'miễn phí #1'}}),
+  readKey: () => ({{topic: 'cấu trúc V-ing', costUsd: 0.0006, paid: false, keyLabel: 'miễn phí #1', parts: [
+    {{part: 'CÔNG THỨC', kind: 'word', unit: 'từ', items: [{{id: '1.1', en: 'admit + V-ing', vi: 'thừa nhận làm gì'}},
+                                                         {{id: '1.2', en: 'deny + V-ing', vi: 'phủ nhận làm gì'}}]}},
+    {{part: 'CẤU TRÚC', kind: 'formula', unit: 'công thức', items: [{{id: '2.1', en: 'S + V(s/es)', vi: 'HTĐ'}}]}}]}}),
   deleteFile: () => ({{rebuilt: false}}),
   exportSession: () => ({{sheetUrl: '#', imageUrl: '#', exportedAt: '21:00 27/09/2026', exportedAtMs: 3}}),
 }};

@@ -93,11 +93,12 @@ test('penalties follow the agreed rules', () => {
 test('assembleSession builds rows in roster order with missing and unmatched rows', { skip: !HAS_DATA && 'không có data/' }, () => {
   const fixture = JSON.parse(fs.readFileSync(path.join(DATA, 'gemini', 'IMG_7451.json'), 'utf8'));
   const truth = JSON.parse(fs.readFileSync(path.join(DATA, 'result.json'), 'utf8'));
-  const keyParts = [{ part: 'TỪ VỰNG', unit: 'từ', items: truth.parts[0].key.map((k) => ({ en: k.en, vi: k.vi })) }];
+  const keyParts = plain(G.prepareKey([{ part: 'TỪ VỰNG', items: truth.parts[0].key.map((k) => ({ en: k.en, vi: k.vi })) }]));
+  const idOf = (en) => keyParts[0].items.find((k) => k.en.toLowerCase() === en.toLowerCase()).id;
   const bao = G.normalizeGrade({ written_name: 'Q.Việt', matched_name: '', key_matches: true,
-    vocab: fixture.items, others: [], unclear: [] }, keyParts, ROSTER);
+    items: fixture.items.map((it) => Object.assign({ id: idOf(it.key_en) }, it)), unclear: [] }, keyParts, ROSTER);
   const stray = G.normalizeGrade({ written_name: 'Chi', matched_name: '', key_matches: false,
-    vocab: [], others: [], unclear: [] }, keyParts, ROSTER);
+    items: [], unclear: [] }, keyParts, ROSTER);
   const t = plain(G.assembleSession(keyParts, ROSTER,
     [Object.assign(bao, { fileName: 'a.jpg', url: 'u1' }), Object.assign(stray, { fileName: 'b.jpg', url: 'u2' })],
     'TA6', PENALTY));
@@ -116,13 +117,64 @@ test('assembleSession builds rows in roster order with missing and unmatched row
   assert.ok(last.notes.some((n) => n.includes('không khớp đáp án')));
 });
 
-test('normalizeGrade aligns other parts to the key', () => {
-  const keyParts = [{ part: 'CÔNG THỨC', unit: 'công thức', items: [{ en: 'S + V(s/es)', vi: 'HTĐ' }, { en: 'S + am/is/are + V-ing', vi: 'HTTD' }] }];
-  const g = plain(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, vocab: [],
-    others: [{ part: 'CÔNG THỨC', key_text: 'S + am/is/are + V-ing', written: 'S + is + Ving', correct: true },
-             { part: 'CÔNG THỨC', key_text: 'S + V(s/es)', written: 'S + V', correct: false }], unclear: [] }, keyParts, ROSTER));
-  assert.deepEqual(g.others.map((o) => o.correct), [false, true]);
+test('normalizeGrade maps answers by item id, whatever order Gemini returns them in', () => {
+  const keyParts = G.prepareKey([{ part: 'CÔNG THỨC', items: [{ en: 'S + V(s/es)', vi: 'HTĐ' }, { en: 'S + am/is/are + V-ing', vi: 'HTTD' }] }]);
+  const g = plain(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true,
+    items: [{ id: '1.2', written_en: 'S + is + Ving', correct: true }, { id: '1.1', written_en: 'S + V', correct: false }],
+    unclear: [] }, keyParts, ROSTER));
+  assert.deepEqual(g.items.map((o) => [o.id, o.correct]), [['1.1', false], ['1.2', true]]);
   assert.equal(g.matchedName, 'Tú Linh');
+  assert.equal(g.keyMatches, true);
+  const blank = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, items: [], unclear: [] },
+    keyParts, ROSTER));
+  assert.equal(blank.keyMatches, false);  // nothing on the paper matches the key
+});
+
+test('the name Gemini guesses is accepted only if it shares a word with the paper', () => {
+  const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', items: [{ en: 'above', vi: 'trên' }] }]);
+  const name = (written, guess) => G.normalizeGrade({ written_name: written, matched_name: guess, key_matches: true,
+    items: [{ id: '1.1', written_en: 'above' }], unclear: [] }, keyParts, ROSTER).matchedName;
+  assert.equal(name('Việt Q', 'Quốc Việt'), 'Quốc Việt');
+  assert.equal(name('Q Viel', 'Quốc Việt'), 'Quốc Việt');  // same initials, misread letters
+  assert.equal(name('T.Vy', 'Minh Khôi'), '');
+  assert.equal(name('', 'Minh Khôi'), '');  // back side without a name: never guess
+  assert.equal(name('Việt Q', 'Người Lạ'), '');  // not in the roster
+});
+
+test('verb patterns are spelled with the usual notations (Ving, doing, O, sb, optional parts)', () => {
+  assert.equal(G.letterErrors('deny + ving', 'deny + V-ing'), 0);
+  assert.equal(G.letterErrors('deny doing', 'deny + V-ing'), 0);
+  assert.equal(G.letterErrors('accuse O of Ving', 'accuse sb of V-ing'), 0);
+  assert.equal(G.letterErrors('apologize for Ving', 'apologize (to sb) for + V-ing'), 0);
+  assert.equal(G.letterErrors('object on + ving', 'object to + V-ing'), 2);
+  assert.equal(G.letterErrors('admit + V', 'admit + V-ing'), 3);
+  assert.equal(G.letterErrors('O : Opinion', 'opinion'), 0);  // label the student adds (OSASCOMP)
+  assert.equal(G.letterErrors('P: Porpuse', 'purpose'), 2);
+  assert.equal(G.letterErrors('1. above', 'above'), 0);
+});
+
+test('a two-sided paper (back side without a name) is one student, word-style parts graded by code', () => {
+  const keyParts = G.prepareKey([
+    { part: 'CÔNG THỨC', kind: 'word', items: [{ en: 'admit + V-ing', vi: 'thừa nhận' }, { en: 'deny + V-ing', vi: 'phủ nhận' },
+                                               { en: 'advise O to V', vi: 'khuyên' }] },
+    { part: 'CẤU TRÚC', kind: 'formula', items: [{ en: 'opinion', vi: 'quan điểm' }, { en: 'size', vi: 'kích cỡ' }] }]);
+  const w = (id, en, extra) => Object.assign({ id, written_en: en, written_vi: 'x', meaning_ok: true }, extra || {});
+  const photo = (file, name, items) => Object.assign(G.normalizeGrade({ written_name: name, matched_name: '', key_matches: true,
+    items, unclear: [] }, keyParts, ROSTER), { fileId: file, fileName: file + '.jpg', url: 'u/' + file });
+  const t = plain(G.assembleSession(keyParts, ROSTER, [
+    photo('bai_2', '', [w('1.3', 'advise sb to V'), w('2.1', 'opinion', { correct: true }), w('2.2', 'size', { correct: true })]),
+    photo('bai_1', 'M.Khôi', [w('1.2', 'deny doing'), w('1.1', 'admit + Ving')]),  // written in a different order
+    photo('bai_3', 'Q.Việt', [w('1.1', 'admit + ving'), w('1.2', 'deny + ving'), w('1.3', 'advise O to V')]),
+    photo('bai_4', '', [w('1.1', 'admit ving'), w('1.2', 'deny ving'), w('1.3', 'advise o to v')]),  // another full paper
+  ], 'TA9', PENALTY));
+  assert.deepEqual(t.columns, ['CÔNG THỨC', 'TỪ VIẾT SAI', 'CẤU TRÚC', 'CHÉP PHẠT']);
+  const khoi = t.rows.find((r) => r.name === 'Minh Khôi');
+  assert.equal(khoi.values['CÔNG THỨC'], '3/3 từ');
+  assert.equal(khoi.values['CẤU TRÚC'], '2/2 công thức');
+  assert.deepEqual(khoi.photos.map((p) => p.id).sort(), ['bai_1', 'bai_2']);
+  assert.equal(khoi.flag, true);  // auto-paired back side: the teacher checks it
+  const stray = t.rows.filter((r) => r.status === 'unmatched');
+  assert.deepEqual(stray.map((r) => r.photos[0].id), ['bai_4']);  // overlaps Việt's paper: not a back side
 });
 
 test('grading more photos later keeps what the teacher already reviewed', () => {
@@ -187,6 +239,18 @@ test('classifyGeminiError decides how to rotate keys', () => {
   assert.equal(G.classifyGeminiError(404, { error: { code: 404, message: 'no longer available to new users' } }).kind, 'daily');
   assert.equal(G.classifyGeminiError(503, { error: { code: 503, message: 'overloaded' } }).kind, 'retry');
   assert.equal(G.classifyGeminiError(400, { error: { code: 400, message: 'Invalid JSON payload' } }).kind, 'fatal');
+});
+
+test('normalizeKey keeps each part kind and gives every item an id', () => {
+  const k = plain(G.normalizeKey({ topic: 't', parts: [
+    { part: 'CÔNG THỨC', kind: 'word', items: [{ en: 'admit + V-ing', vi: 'thừa nhận', numbered: true }] },
+    { part: 'CẤU TRÚC', kind: 'formula', items: [{ en: 'opinion', vi: 'quan điểm', numbered: true },
+                                                 { en: 'size', vi: 'kích cỡ', numbered: true }] }] }));
+  assert.deepEqual(k.parts.map((p) => [p.part, p.kind, p.unit, p.items.map((i) => i.id)]),
+    [['CÔNG THỨC', 'word', 'từ', ['1.1']], ['CẤU TRÚC', 'formula', 'công thức', ['2.1', '2.2']]]);
+  // ids stay the same when the teacher deletes an item and saves again
+  const again = plain(G.prepareKey([{ part: k.parts[1].part, kind: 'formula', items: [k.parts[1].items[1]] }]));
+  assert.equal(again[0].items[0].id, '2.2');
 });
 
 test('normalizeKey drops unnumbered heading lines only when the key is numbered', () => {

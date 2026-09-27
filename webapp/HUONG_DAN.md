@@ -132,6 +132,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 2. **Chụp đáp án** (hoặc chọn ảnh key). Tải lại sẽ thay đáp án cũ.
    Đáp án nhiều trang: chọn nhiều ảnh cùng lúc, hoặc chụp trang 1 rồi bấm **+ Thêm trang đáp án**.
 3. **Chụp bài** từng tờ, hoặc **Chọn nhiều ảnh** từ thư viện. Ảnh được thu nhỏ trước khi tải lên.
+   Bài 2 mặt: chụp mặt có tên trước, **ngay sau đó** chụp mặt sau. Mặt sau không có tên được tự ghép với ảnh chụp
+   ngay trước nó (dòng đó tô vàng để cô kiểm tra). Mặt sau có ghi tên thì càng chắc.
    Ảnh nào lỗi (thẻ đỏ) thì chụp lại ảnh đó.
    Ảnh **mờ hoặc tối** được báo ngay (khung vàng): bấm **Bỏ, chụp lại** rồi chụp lại, hoặc **Vẫn tải lên** nếu cô thấy vẫn đọc được.
    Việc kiểm tra chạy trên điện thoại, không tốn tiền. Trang giấy gần như trắng (em viết rất ít) đôi khi cũng bị báo mờ: cứ bấm Vẫn tải lên.
@@ -142,11 +144,21 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
    Ở bảng chấm, bấm "ảnh 1", "ảnh 2" cũng mở đúng ảnh đó để xem hoặc xóa.
 
 **Tab 2. Chấm bài**
+0. **Danh sách lớp** (làm một lần cho mỗi lớp): bấm **Sửa danh sách lớp** cạnh dòng "Lớp có ... học sinh",
+   dán tên học sinh (mỗi dòng một tên, đúng như muốn hiện trong bảng) > **Lưu danh sách**. Danh sách lưu ở file
+   `danh_sach_lop.json` trong folder lớp, dùng cho mọi buổi của lớp đó. Có em mới hoặc nghỉ học thì sửa lại ở đây.
+   Chưa lưu danh sách thì web lấy tên từ file chấm của buổi gần nhất.
 1. **Đọc đáp án** > xem số mục có đúng không; sửa, **Xóa** mục thừa hoặc **+ Thêm mục** còn thiếu > **Đúng, chấm ... bài**.
+   Mỗi phần có ô **Cách chấm**:
+   - **như từ vựng (chính tả, nghĩa)**: dùng cho phần "từ / cụm từ / cấu trúc : nghĩa", ví dụ `admit + V-ing : thừa nhận làm gì`
+     hay `opinion : quan điểm`. Chính tả chấm theo luật châm chước 1 lỗi; `Ving` = `V-ing` = `doing`, `O` = `sb`,
+     phần trong ngoặc của đáp án như `(to sb)` không viết cũng được, nhãn em tự ghi đầu dòng (`O :`, `1.`) không tính.
+   - **đúng/sai cả công thức**: dùng cho công thức dạng `S + V(s/es)`, câu gián tiếp, quy tắc trọng âm.
+   AI tự chọn, cô chỉ cần đổi khi thấy chưa đúng. Học sinh viết khác thứ tự đáp án vẫn được chấm đúng mục.
 2. Chờ chấm từng ảnh (vài giây một ảnh). **Giữ màn hình sáng**; lỡ tắt thì mở lại, bấm **Chấm ảnh mới**
    (ảnh đã chấm không mất). Nếu 2 bài đầu không khớp đáp án, web dừng lại hỏi.
 3. Duyệt **bảng chấm**: sửa điểm, từ sai, chép phạt, ghi chú ngay trên bảng.
-   Dòng tô vàng = cần cô xem (chữ gạch xóa, tên chưa ghép được, gộp 2 ảnh, có ảnh mới); sửa một ô trong dòng thì hết tô vàng.
+   Dòng tô vàng = cần cô xem (chữ gạch xóa, tên chưa ghép được, mặt sau tự ghép, 2 ảnh cùng tên mà trùng nhiều mục, có ảnh mới); sửa một ô trong dòng thì hết tô vàng.
    Dòng xám = không có ảnh bài. Ảnh chưa nhận ra tên: chọn tên ở ô đầu, dòng "không có ảnh" trống của em đó tự bỏ.
    Web không cho xuất khi còn dòng chưa có tên hoặc trùng tên.
    Sửa thẳng vào ô: điểm ("12/13 từ"), từ viết sai, ghi chú. Mọi chỉnh sửa tự lưu.
@@ -167,6 +179,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
   thì dòng đó được chấm lại và ghi chú "Có ảnh mới".
 - Xuất lại: file Sheet và ảnh bảng chấm được cập nhật đủ 10 bài.
 - Nếu đã thay ảnh đáp án, web báo và gợi ý đọc đáp án mới, chấm lại tất cả.
+- **Đọc lại đáp án và chấm lại tất cả**: tên cô đã chọn cho từng ảnh được giữ nếu tên đó có trong danh sách lớp;
+  tên tạm (như A, B, C) bị bỏ để AI ghép lại.
 - Dòng cô bấm **Xóa** (ví dụ ảnh chụp nhầm) thì ảnh đó không bị chấm lại nữa.
 
 Kết quả chấm và bảng đang sửa được lưu trong folder buổi (file `ket_qua_cham.json`, đừng xóa file này),

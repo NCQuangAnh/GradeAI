@@ -123,6 +123,8 @@
   .alert.bad { background: var(--pen-soft); border-color: #eab0b4; }
   .alert.bad b { color: var(--pen); }
   .alert .row { margin-top: 10px; }
+  button.linkbtn { width: auto; padding: 2px 6px; margin-left: 6px; border: 0; background: none; box-shadow: none;
+    color: var(--violet); font-weight: 600; text-decoration: underline; min-height: 0; }
   .bar { height: 8px; background: var(--rule-soft); border-radius: 999px; overflow: hidden; margin: 10px 0; }
   .bar i { display: block; height: 100%; background: var(--violet); width: 0; transition: width .3s; }
   .keylist { font-size: 14px; margin: 6px 0 10px; padding-left: 22px; }
@@ -493,13 +495,13 @@ function handleFiles(input, kind, mode) {
     if (err) { el.className = 'thumb err'; el.querySelector('span').textContent = 'Lỗi: ' + errMsg(err); U.failed++; }
     U.pending--; uploadSummary();
   };
-  const upload = (el, img) => {
+  const upload = (el, img, takenAt) => {
     el.className = 'thumb';
     el.innerHTML = `${img.preview ? `<img src="${img.preview}" alt="">` : ''}<span>${label}đang tải lên...</span>`;
     const replaceKey = batch.replaceNext; batch.replaceNext = false;
     uploading = uploading.then(async () => {
       try {
-        const saved = await run('uploadImage', sesId, img.b64, img.mime, kind, replaceKey);
+        const saved = await run('uploadImage', sesId, img.b64, img.mime, kind, replaceKey, takenAt);
         U.saved++;
         el.remove();  // ảnh đã lưu chuyển xuống mục "Ảnh trong buổi này"
         if (V.sesId === sesId) {
@@ -519,7 +521,9 @@ function handleFiles(input, kind, mode) {
     });
   };
 
-  files.forEach((file) => {
+  const start = Date.now();
+  files.forEach((file, i) => {
+    const takenAt = start + i;  // thứ tự chọn/chụp, giữ nguyên dù ảnh mờ chờ cô xác nhận
     const el = document.createElement('div'); el.className = 'thumb';
     el.innerHTML = `<span>${label}đang xử lý...</span>`;
     $('queue').prepend(el);
@@ -529,11 +533,11 @@ function handleFiles(input, kind, mode) {
       const q = img.quality;
       if (q && (q.dark || q.blurry)) {
         askKeep(el, q, img.preview).then((keep) => {
-          if (keep) upload(el, img);
+          if (keep) upload(el, img, takenAt);
           else { el.remove(); U.pending--; uploadSummary(); }
         });
       } else {
-        upload(el, img);
+        upload(el, img, takenAt);
       }
     });
   });
@@ -727,7 +731,8 @@ async function renderGradeTop() {
   top.innerHTML = `
     <p><b>${esc(S.info.className)}, buổi ${esc(S.info.label)}</b>: ${S.gradable.length} ảnh bài làm,
       ${S.gradable.length - S.newPhotos.length} đã chấm, <b>${S.newPhotos.length} ảnh mới</b>.
-      Lớp có ${S.info.roster.length} học sinh.</p>
+      Lớp có ${S.info.roster.length} học sinh <button id="editRoster" class="linkbtn" type="button">Sửa danh sách lớp</button></p>
+    <div id="rosterBox"></div>
     <p id="keyInfo" class="muted">Đang kiểm tra key Gemini...</p>
     ${S.info.sheetUrl ? `<p>Đã xuất file chấm${st.exportedAt ? ' lúc ' + esc(st.exportedAt) : ''}:
       <a href="${S.info.sheetUrl}" target="_blank">mở file Sheet</a>.
@@ -736,10 +741,36 @@ async function renderGradeTop() {
   if ($('readKey')) $('readKey').onclick = readKey;
   if ($('gradeNew')) $('gradeNew').onclick = () => gradePhotos(S.newPhotos, false);
   if ($('gradeNewOldKey')) $('gradeNewOldKey').onclick = async () => {
-    await run('saveKey', S.sesId, S.key, false); gradePhotos(S.newPhotos, false);
+    const k = await run('saveKey', S.sesId, S.key, false); S.key.parts = k.parts; gradePhotos(S.newPhotos, false);
   };
   if ($('openTable')) $('openTable').onclick = renderTable;
+  $('editRoster').onclick = editRoster;
   showKeyStatus();
+}
+
+/** Danh sách lớp lưu trong folder lớp (danh_sach_lop.json), dùng cho mọi buổi của lớp. */
+function editRoster() {
+  const box = $('rosterBox');
+  if (box.innerHTML) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="alert">
+    <b>Danh sách lớp ${esc(S.info.className)}</b>: mỗi dòng một tên, đúng như muốn hiện trong bảng chấm.
+    AI dùng danh sách này để nhận tên trên giấy.
+    <textarea id="rosterText" rows="10" style="margin-top:8px">${esc(S.info.roster.join('\n'))}</textarea>
+    <div class="row"><button id="saveRoster" class="primary" type="button">Lưu danh sách</button>
+      <button id="cancelRoster" type="button">Hủy</button></div></div>`;
+  $('cancelRoster').onclick = () => { box.innerHTML = ''; };
+  $('saveRoster').onclick = async () => {
+    const names = $('rosterText').value.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (!names.length) return toast('Danh sách trống', true);
+    $('saveRoster').disabled = true;
+    try {
+      const saved = await run('saveClassRoster', S.clsId, names);
+      if (S.table) { await flushSave(); await run('buildTable', S.sesId); }
+      toast(`Đã lưu ${saved.length} học sinh`);
+    } catch (e) { $('saveRoster').disabled = false; return toast(errMsg(e), true); }
+    await renderGradeTop();
+    if (S.table && $('tableBox').innerHTML) renderTable();
+  };
 }
 
 async function showKeyStatus() {
@@ -764,6 +795,9 @@ async function readKey() {
 /** The key Gemini read, editable: the teacher fixes or removes items before grading. */
 const PARTS = ['TỪ VỰNG', 'CÔNG THỨC', 'CẤU TRÚC', 'CÂU GIÁN TIẾP', 'QUY TẮC TRỌNG ÂM'];
 const UNITS = { 'TỪ VỰNG': 'từ', 'QUY TẮC TRỌNG ÂM': 'quy tắc' };
+const KINDS = { word: 'như từ vựng (chính tả, nghĩa)', formula: 'đúng/sai cả công thức' };
+function partKind(p) { return p.kind || (p.part === 'TỪ VỰNG' ? 'word' : 'formula'); }
+function unitOf(part, kind) { return kind === 'word' ? 'từ' : (UNITS[part] || 'công thức'); }
 function renderKey() {
   S.key.parts = S.key.parts.filter((p) => p.items.length);
   const total = S.key.parts.reduce((n, p) => n + p.items.filter((it) => String(it.en).trim()).length, 0);
@@ -771,7 +805,9 @@ function renderKey() {
     <h2>Đáp án AI đọc được: ${esc(S.key.topic)}</h2>
     <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(', ')}</b>, tổng ${total} mục.
       Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa.</p>
-    <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${esc(p.part)}</h2>${
+    <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${esc(p.part)}</h2>
+      <label class="muted">Cách chấm <select class="kind" data-p="${pi}" style="width:auto">${Object.keys(KINDS).map((k) =>
+        `<option value="${k}" ${partKind(p) === k ? 'selected' : ''}>${KINDS[k]}</option>`).join('')}</select></label>${
       p.items.map((it, ii) => `<div class="row" style="margin-bottom:6px">
         <input value="${esc(it.en)}" data-p="${pi}" data-i="${ii}" data-f="en" style="flex:2" placeholder="tiếng Anh / công thức">
         <input value="${esc(it.vi)}" data-p="${pi}" data-i="${ii}" data-f="vi" style="flex:3" placeholder="nghĩa / tên">
@@ -789,6 +825,9 @@ function renderKey() {
     $('goGrade').disabled = !S.key.parts.some((p) => p.items.some((it) => String(it.en).trim()));
   }));
   const reopen = () => { renderKey(); $('keyBox').querySelector('details').open = true; };
+  $('keyBox').querySelectorAll('select.kind').forEach((el) => (el.onchange = () => {
+    const p = S.key.parts[+el.dataset.p]; p.kind = el.value; p.unit = unitOf(p.part, p.kind); reopen();
+  }));
   $('keyBox').querySelectorAll('button.del').forEach((b) => (b.onclick = () => {
     S.key.parts[+b.dataset.p].items.splice(+b.dataset.i, 1); reopen();
   }));
@@ -797,15 +836,15 @@ function renderKey() {
   }));
   if ($('addPart')) $('addPart').onclick = () => {
     const part = $('newPart').value; if (!part) return;
-    S.key.parts.push({ part, unit: UNITS[part] || 'công thức', items: [{ en: '', vi: '' }] });
+    const kind = part === 'TỪ VỰNG' ? 'word' : 'formula';
+    S.key.parts.push({ part, kind, unit: unitOf(part, kind), items: [{ en: '', vi: '' }] });
     S.key.parts.sort((a, b) => PARTS.indexOf(a.part) - PARTS.indexOf(b.part)); reopen();
   };
   $('goGrade').onclick = async () => {
     $('goGrade').disabled = true;
-    const parts = S.key.parts.map((p) => ({ part: p.part, unit: p.unit,
+    const parts = S.key.parts.map((p) => ({ part: p.part, kind: partKind(p), unit: p.unit,
       items: p.items.filter((it) => String(it.en).trim()) })).filter((p) => p.items.length);  // bỏ mục để trống
-    S.key.parts = parts;
-    try { await run('saveKey', S.sesId, { topic: S.key.topic, parts }, true); }
+    try { S.key.parts = (await run('saveKey', S.sesId, { topic: S.key.topic, parts }, true)).parts; }
     catch (e) { $('goGrade').disabled = false; return toast(errMsg(e), true); }
     $('keyBox').innerHTML = '';
     gradePhotos(S.gradable, true);

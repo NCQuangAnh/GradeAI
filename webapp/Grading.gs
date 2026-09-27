@@ -11,7 +11,9 @@ var VOCAB = 'TỪ VỰNG';
 var WRONG_COL = 'TỪ VIẾT SAI';
 var PENALTY_COL = 'CHÉP PHẠT';
 
-function unitFor(part) {
+/** Đơn vị hiện trong bảng: phần chấm như từ vựng thì "từ", còn lại theo tên phần. */
+function unitFor(part, kind) {
+  if (kind === 'word') return 'từ';
   return PART_UNITS[part] || 'công thức';
 }
 
@@ -25,9 +27,25 @@ function stripAccents(s) {
     .replace(/đ/g, 'd').replace(/Đ/g, 'D');
 }
 
-/** Letters to add, remove, change or swap to turn `written` into `key` (swap of 2 neighbours = 1). */
-function letterErrors(written, key) {
-  var a = normLetters(written), b = normLetters(key);
+/**
+ * Cách viết tương đương trong cấu trúc động từ không tính là lỗi:
+ * O = sb = somebody = someone, sth = something, V-ing = Ving = doing.
+ */
+function notationNorm_(s) {
+  var t = ' ' + String(s || '').toLowerCase().replace(/[()\[\]]/g, ' ') + ' ';
+  t = t.replace(/(^|[^a-z])(somebody|someone|smb|sb|o)(?=[^a-z]|$)/g, '$1 sb ')
+       .replace(/(^|[^a-z])(something|sth)(?=[^a-z]|$)/g, '$1 sth ')
+       .replace(/(^|[^a-z])(v\s*[-_.]?\s*ing|doing)(?=[^a-z]|$)/g, '$1 ving ');
+  return normLetters(t);
+}
+
+/** Phần trong ngoặc của đáp án là tùy chọn: "apologize (to sb) for + V-ing" nhận cả khi không viết "to sb". */
+function keyForms_(key) {
+  var full = notationNorm_(key), short = notationNorm_(String(key || '').replace(/\([^)]*\)/g, ' '));
+  return full === short ? [full] : [full, short];
+}
+
+function editDistance_(a, b) {
   var d = [];
   for (var i = 0; i <= a.length; i++) {
     d.push([]);
@@ -44,9 +62,33 @@ function letterErrors(written, key) {
   return d[a.length][b.length];
 }
 
+/**
+ * Nhãn em tự ghi đầu dòng không tính là chữ của từ: "O : opinion" (OSASCOMP), "1. above", "a) below".
+ */
+function writtenForms_(written) {
+  var s = String(written || ''), bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
+  return bare === s ? [notationNorm_(s)] : [notationNorm_(s), notationNorm_(bare)];
+}
+
+function bestForm_(written, key) {
+  var best = null, bestW = null, dist = Infinity;
+  writtenForms_(written).forEach(function (w) {
+    keyForms_(key).forEach(function (f) {
+      var e = editDistance_(w, f);
+      if (e < dist) { dist = e; best = f; bestW = w; }
+    });
+  });
+  return {written: bestW, key: best, errors: dist};
+}
+
+/** Letters to add, remove, change or swap to turn `written` into `key` (swap of 2 neighbours = 1). */
+function letterErrors(written, key) {
+  return bestForm_(written, key).errors;
+}
+
 /** Same slip in several items counts once ('ceilling' in both 'ceiling' and 'ceiling fan'). */
 function errorSignature(written, key) {
-  var a = normLetters(written), b = normLetters(key), n = Math.min(a.length, b.length), i = 0;
+  var f = bestForm_(written, key), a = f.written, b = f.key, n = Math.min(a.length, b.length), i = 0;
   while (i < n && a[i] === b[i]) i++;
   return a.slice(Math.max(0, i - 3), i + 2) + '|' + b.slice(Math.max(0, i - 3), i + 2);
 }
@@ -117,6 +159,18 @@ function matchName(written, roster) {
   return hits.length === 1 ? hits[0] : '';
 }
 
+/**
+ * Tên AI đoán chỉ được nhận khi khớp với tên ghi trên giấy: có chung ít nhất một chữ ("Hường" ~ "Thu Hương"),
+ * hoặc chữ cái đầu các chữ giống nhau ("Q Viel" ~ "Quốc Việt").
+ */
+function namesOverlap(written, rosterName) {
+  var toks = function (s) { return stripAccents(s).toLowerCase().split(/[^a-z0-9]+/).filter(String); };
+  var w = toks(written), r = toks(rosterName);
+  var initials = function (t) { return t.map(function (x) { return x[0]; }).join(''); };
+  if (w.length >= 2 && initials(w) === initials(r)) return true;
+  return w.some(function (x) { return x.length >= 2 && r.indexOf(x) >= 0; });
+}
+
 /** Penalty text for one student. parts: {partName: {correct, total, wrongCount}}. */
 function penaltyFor(parts, className, penaltyConfig) {
   var cfg = {};
@@ -143,87 +197,172 @@ function normKey_(s) {
   return normLetters(s) || stripAccents(s).toLowerCase().replace(/\s+/g, '');
 }
 
-/** Merge several photos of one student: for each key item keep the version that was actually written. */
-function mergeStudent_(photos) {
-  var vocab = {}, others = {};
-  photos.forEach(function (ph) {
-    (ph.vocab || []).forEach(function (it) {
-      var k = normKey_(it.key_en), cur = vocab[k];
-      if (!cur || (!String(cur.written_en || '').trim() && String(it.written_en || '').trim())) vocab[k] = it;
-    });
-    (ph.others || []).forEach(function (it) {
-      var k = it.part + '|' + normKey_(it.key_text), cur = others[k];
-      if (!cur || (!cur.correct && it.correct) || (!String(cur.written || '').trim() && String(it.written || '').trim())) {
-        others[k] = it;
+/**
+ * Đáp án chuẩn hóa: mỗi phần có kind ('word' = từ/cụm từ + nghĩa, chấm chính tả bằng code;
+ * 'formula' = công thức/quy tắc, Gemini chấm đúng sai) và mỗi mục có mã riêng (1.1, 1.2, 2.1...)
+ * để Gemini trả lời theo mã, không phụ thuộc thứ tự học sinh viết.
+ */
+function prepareKey(parts) {
+  var used = {};
+  return (parts || []).map(function (p, pi) {
+    var kind = p.kind === 'word' || p.kind === 'formula' ? p.kind : (p.part === VOCAB ? 'word' : 'formula');
+    var n = 0;
+    var items = (p.items || []).map(function (it) {
+      var id = String(it.id || '').trim();
+      if (!id || used[id]) {
+        do { n++; id = (pi + 1) + '.' + n; } while (used[id]);
       }
+      used[id] = true;
+      return {id: id, en: it.en, vi: it.vi};
+    });
+    return {part: p.part, kind: kind, unit: unitFor(p.part, kind), items: items};
+  });
+}
+
+/** Kết quả một ảnh -> các mục theo mã đáp án (hỗ trợ cả kết quả cũ dạng vocab/others). */
+function photoItems_(ph, keyParts) {
+  if (ph.items) return ph.items;
+  var out = [];
+  keyParts.forEach(function (kp) {
+    kp.items.forEach(function (k) {
+      var it = kp.part === VOCAB
+        ? (ph.vocab || []).filter(function (v) { return normKey_(v.key_en) === normKey_(k.en); })[0]
+        : (ph.others || []).filter(function (o) { return o.part === kp.part && normKey_(o.key_text) === normKey_(k.en); })[0];
+      it = it || {};
+      out.push({id: k.id, written_en: it.written_en || it.written || '', written_vi: it.written_vi || '',
+                meaning_ok: !!it.meaning_ok, other_word: !!it.other_word, correct: !!it.correct, note: it.note || ''});
     });
   });
-  return {vocab: vocab, others: others};
+  return out;
+}
+
+function writtenIds_(ph) {
+  return (ph.items || []).filter(function (it) { return String(it.written_en || '').trim(); })
+    .map(function (it) { return it.id; });
+}
+
+/**
+ * Mặt sau tờ bài thường không ghi tên: ảnh không có tên được ghép với ảnh chụp ngay trước nó
+ * (tên file theo thứ tự chụp), nếu hai ảnh gần như không trùng mục nào (2 mặt của cùng một bài).
+ */
+function pairBackSides_(photos) {
+  var sorted = photos.slice().sort(function (a, b) { return String(a.fileName).localeCompare(String(b.fileName)); });
+  sorted.forEach(function (ph, i) {
+    if (ph.matchedName || String(ph.writtenName || '').trim() || i === 0) return;
+    var prev = sorted[i - 1];
+    if (!prev.matchedName) return;
+    var mine = writtenIds_(ph), theirs = writtenIds_(prev);
+    var overlap = mine.filter(function (id) { return theirs.indexOf(id) >= 0; }).length;
+    if (mine.length && overlap <= 2) {
+      ph.matchedName = prev.matchedName;
+      ph.pairedWith = prev.fileName;
+    }
+  });
+  return sorted;
+}
+
+/** Gộp các ảnh của một em: mỗi mục lấy bản em thực sự viết (ưu tiên bản đúng). */
+function mergeStudent_(photos) {
+  var byId = {};
+  photos.forEach(function (ph) {
+    (ph.items || []).forEach(function (it) {
+      var cur = byId[it.id], w = String(it.written_en || '').trim();
+      if (!cur) { byId[it.id] = it; return; }
+      var cw = String(cur.written_en || '').trim();
+      if ((!cw && w) || (w && ((!cur.correct && it.correct) || (!cur.meaning_ok && it.meaning_ok)))) byId[it.id] = it;
+    });
+  });
+  return byId;
 }
 
 /**
  * Build the review table.
- * keyParts: [{part, unit, items: [{en, vi}]}]
- * photoResults: [{fileId, fileName, url, writtenName, matchedName, keyMatches, vocab: [...], others: [...], unclear: [...]}]
- * Returns {columns, rows: [{name, values: {col: text}, notes: [..], photos: [{name, url}], status}]}
+ * keyParts: [{part, kind, unit, items: [{id, en, vi}]}]
+ * photoResults: [{fileId, fileName, url, writtenName, matchedName, keyMatches, items: [...], unclear: [...]}]
+ * Returns {columns, rows: [{name, values: {col: text}, notes: [..], photos: [{id, name, url}], status, flag, ai}]}
  */
 function assembleSession(keyParts, roster, photoResults, className, penaltyConfig) {
-  var partNames = keyParts.map(function (p) { return p.part; });
-  var hasVocab = partNames.indexOf(VOCAB) >= 0;
-  var columns = hasVocab
-    ? [VOCAB, WRONG_COL].concat(partNames.filter(function (p) { return p !== VOCAB; }))
-    : partNames.concat([WRONG_COL]);
+  keyParts = prepareKey(keyParts);
+  var columns = keyParts.map(function (p) { return p.part; });
+  var lastWord = -1;
+  keyParts.forEach(function (p, i) { if (p.kind === 'word') lastWord = i; });
+  if (lastWord >= 0) columns.splice(lastWord + 1, 0, WRONG_COL); else columns.push(WRONG_COL);
   columns.push(PENALTY_COL);
 
+  var photos = pairBackSides_(photoResults.map(function (ph) {
+    var copy = {};
+    Object.keys(ph).forEach(function (k) { copy[k] = ph[k]; });
+    copy.items = photoItems_(ph, keyParts);
+    return copy;
+  }));
   var byName = {}, unmatched = [];
-  photoResults.forEach(function (ph) {
+  photos.forEach(function (ph) {
     if (ph.matchedName) (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph);
     else unmatched.push(ph);
   });
 
   function gradeRow(name, photos) {
     var merged = mergeStudent_(photos), values = {}, notes = [], parts = {}, wrongWords = [];
+    // các phần chấm như từ vựng được xét chung: châm chước 1 lỗi cho cả bài
+    var wordItems = [];
     keyParts.forEach(function (kp) {
-      if (kp.part === VOCAB) {
-        var items = kp.items.map(function (k) {
-          return merged.vocab[normKey_(k.en)] ||
-            {key_en: k.en, written_en: '', written_vi: '', meaning_ok: false, other_word: false};
-        });
-        var verdicts = decideVocab(items);
-        var wrong = verdicts.filter(function (v) { return v.verdict === 'wrong'; });
-        verdicts.forEach(function (v) {
+      if (kp.kind !== 'word') return;
+      kp.items.forEach(function (k) {
+        var it = merged[k.id] || {};
+        wordItems.push({id: k.id, key_en: k.en, written_en: it.written_en || '', written_vi: it.written_vi || '',
+                        meaning_ok: !!it.meaning_ok, other_word: !!it.other_word});
+      });
+    });
+    var verdictById = {};
+    decideVocab(wordItems).forEach(function (v, i) { verdictById[wordItems[i].id] = v; });
+
+    keyParts.forEach(function (kp) {
+      var wrongCount = 0;
+      kp.items.forEach(function (k) {
+        if (kp.kind === 'word') {
+          var v = verdictById[k.id];
           if (v.verdict === 'correct') return;
           var shown = v.written_en ? "'" + v.written_en + "'" + (v.written_vi ? ": '" + v.written_vi + "'" : '') : '';
-          notes.push(v.key_en + (shown ? ' - em viết ' + shown : '') + ' - ' + v.reason);
-        });
-        wrongWords = wrong.map(function (v) { return v.key_en; });
-        parts[kp.part] = {correct: items.length - wrong.length, total: items.length, wrongCount: wrong.length};
-      } else {
-        var its = kp.items.map(function (k) {
-          return merged.others[kp.part + '|' + normKey_(k.en)] || {part: kp.part, key_text: k.en, written: '', correct: false};
-        });
-        var bad = its.filter(function (it) { return !it.correct; });
-        bad.forEach(function (it) {
-          notes.push(kp.part.toLowerCase() + ' "' + it.key_text + '" - ' +
-            (String(it.written || '').trim() ? "em viết '" + it.written + "'" : 'không viết') + (it.note ? ' (' + it.note + ')' : ''));
-        });
-        parts[kp.part] = {correct: its.length - bad.length, total: its.length, wrongCount: bad.length};
-      }
-      values[kp.part] = parts[kp.part].correct + '/' + parts[kp.part].total + ' ' + unitFor(kp.part);
+          notes.push(k.en + (shown ? ' - em viết ' + shown : '') + ' - ' + v.reason);
+          if (v.verdict === 'wrong') { wrongCount++; wrongWords.push(k.en); }
+        } else {
+          var it = merged[k.id] || {};
+          if (it.correct) return;
+          wrongCount++;
+          notes.push(kp.part.toLowerCase() + ' "' + k.en + '" - ' +
+            (String(it.written_en || '').trim() ? "em viết '" + it.written_en + "'" : 'không viết') + (it.note ? ' (' + it.note + ')' : ''));
+        }
+      });
+      parts[kp.part] = {correct: kp.items.length - wrongCount, total: kp.items.length, wrongCount: wrongCount};
+      values[kp.part] = parts[kp.part].correct + '/' + parts[kp.part].total + ' ' + kp.unit;
     });
     values[WRONG_COL] = wrongWords.join(', ');
     values[PENALTY_COL] = penaltyFor(parts, className, penaltyConfig);
 
-    // flag = dòng cần cô xem lại (tô cam). Ghi chú thường (từ sai, châm chước) không tô.
-    var flag = photos.length > 1;
+    // flag = dòng cần cô xem lại (tô vàng). Ghi chú thường (từ sai, châm chước) không tô.
+    var flag = false;
     photos.forEach(function (ph) {
       (ph.unclear || []).forEach(function (u) { notes.push('Cô xem lại: ' + u); flag = true; });
       if (ph.keyMatches === false) {
         notes.push('Ảnh ' + ph.fileName + ' có vẻ không khớp đáp án (bài lớp/buổi khác?)');
         flag = true;
       }
+      if (ph.pairedWith) {
+        notes.push('Ảnh ' + ph.fileName + ' không ghi tên, AI ghép với ảnh chụp ngay trước (mặt sau của bài) - cô kiểm tra');
+        flag = true;
+      }
     });
-    if (photos.length > 1) notes.push('Gộp ' + photos.length + ' ảnh cùng tên - cô kiểm tra có đúng một em không');
+    if (photos.length > 1) {
+      // 2 mặt của cùng một bài thì ít mục trùng; trùng nhiều thì có thể là 2 em khác nhau
+      var seen = {}, dup = 0;
+      photos.forEach(function (ph) { writtenIds_(ph).forEach(function (id) { if (seen[id]) dup++; seen[id] = true; }); });
+      if (dup > 2) {
+        notes.push('Gộp ' + photos.length + ' ảnh cùng tên nhưng trùng ' + dup + ' mục - có thể là 2 em khác nhau, cô kiểm tra');
+        flag = true;
+      } else {
+        notes.push('Gộp ' + photos.length + ' ảnh (các mặt của cùng một bài)');
+      }
+    }
     // ai: bản AI đề xuất, giữ nguyên dù cô sửa bảng - dữ liệu để sau này làm gợi ý chép phạt theo từng em
     var ai = {};
     Object.keys(values).forEach(function (k) { ai[k] = values[k]; });

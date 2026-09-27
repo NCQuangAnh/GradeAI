@@ -160,12 +160,18 @@ function createSession(classId, dateText) {
  * kind: 'key' hoặc 'photo'. b64: ảnh đã được thu nhỏ trên điện thoại.
  * replaceKey: true = xóa các trang đáp án cũ trước (tải lại đáp án), false = thêm một trang đáp án.
  */
-function uploadImage(sessionId, b64, mime, kind, replaceKey) {
+/**
+ * takenAt: lúc cô chụp/chọn ảnh (ms, từ điện thoại). Tên file theo thời điểm này để thứ tự ảnh đúng thứ tự chụp
+ * (mặt sau không tên được ghép với ảnh ngay trước), dù ảnh nào tải lên xong trước.
+ */
+function uploadImage(sessionId, b64, mime, kind, replaceKey, takenAt) {
   requireUser_();
   var folder = DriveApp.getFolderById(sessionId);
   var ext = mime === 'image/png' ? 'png' : (mime.indexOf('hei') >= 0 ? 'heic' : 'jpg');
-  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss') +
-    '_' + Math.floor(Math.random() * 1000);
+  var d = takenAt ? new Date(Number(takenAt)) : new Date();
+  if (isNaN(d.getTime())) d = new Date();
+  var stamp = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss') +
+    '_' + ('00' + d.getMilliseconds()).slice(-3);
   if (kind === 'key' && replaceKey) keyFiles_(folder).forEach(function (f) { f.setTrashed(true); });
   var name = (kind === 'key' ? 'key_' : 'bai_') + stamp + '.' + ext;
   var file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, name));
@@ -245,14 +251,22 @@ function keyFiles_(folder) {
 
 // ---------- danh sách lớp ----------
 
+var ROSTER_FILE = 'danh_sach_lop.json';
+
 /**
- * Tên học sinh: lấy từ file chấm của buổi gần nhất (theo ngày buổi); lớp chưa có thì lấy từ file Sheet cũ.
- * Lưu tạm 10 phút cho nhanh; xuất file chấm mới thì xóa bản tạm.
+ * Tên học sinh: ưu tiên danh sách cô tự sửa (danh_sach_lop.json trong folder lớp); chưa có thì lấy từ
+ * file chấm của buổi gần nhất (theo ngày buổi); lớp chưa có buổi nào thì lấy từ file Sheet cũ.
+ * Lưu tạm 10 phút cho nhanh; xuất file chấm mới hoặc sửa danh sách thì xóa bản tạm.
  */
 function getRoster_(classFolder) {
   var cache = CacheService.getScriptCache(), cacheKey = 'roster:' + classFolder.getId();
   var hit = cache.get(cacheKey);
   if (hit) return JSON.parse(hit);
+  var saved = savedRoster_(classFolder);
+  if (saved) {
+    cache.put(cacheKey, JSON.stringify(saved), 600);
+    return saved;
+  }
   var year = new Date().getFullYear(), best = null, bestKey = -1, sub = classFolder.searchFolders("trashed = false");
   while (sub.hasNext()) {
     var folder = sub.next(), d = parseSessionDate(folder.getName(), year), key = d ? d.sortKey : 0;
@@ -268,6 +282,41 @@ function getRoster_(classFolder) {
   if (!names.length) names = rosterFromOldSheet_(classFolder.getName());
   cache.put(cacheKey, JSON.stringify(names), 600);
   return names;
+}
+
+function savedRoster_(classFolder) {
+  var f = fileByName_(classFolder, ROSTER_FILE);
+  if (!f) return null;
+  try {
+    var names = JSON.parse(f.getBlob().getDataAsString('UTF-8')).names;
+    return names && names.length ? names : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Danh sách lớp để cô sửa trên web. saved = true nếu đang dùng danh sách cô đã lưu. */
+function getClassRoster(classId) {
+  requireUser_();
+  var folder = DriveApp.getFolderById(classId);
+  return {names: getRoster_(folder), saved: !!savedRoster_(folder)};
+}
+
+/** Lưu danh sách lớp (mỗi phần tử một tên, bỏ trùng và dòng trống). */
+function saveClassRoster(classId, names) {
+  requireUser_();
+  var folder = DriveApp.getFolderById(classId), seen = {}, clean = [];
+  (names || []).forEach(function (n) {
+    n = String(n || '').replace(/\s+/g, ' ').trim();
+    if (n && !seen[n.toLowerCase()]) { seen[n.toLowerCase()] = true; clean.push(n); }
+  });
+  if (!clean.length) throw new Error('Danh sách lớp trống.');
+  var text = JSON.stringify({names: clean, updatedAt: new Date().toISOString()}, null, 1);
+  var f = fileByName_(folder, ROSTER_FILE);
+  if (f) f.setContent(text);
+  else folder.createFile(ROSTER_FILE, text, MimeType.PLAIN_TEXT);
+  CacheService.getScriptCache().remove('roster:' + classId);
+  return clean;
 }
 
 function rosterFromOldSheet_(className) {
@@ -433,18 +482,28 @@ function saveKey(sessionId, key, restart) {
   requireUser_();
   var folder = DriveApp.getFolderById(sessionId);
   var keyIds = keyFiles_(folder).map(function (f) { return f.getId(); });
+  var parts = prepareKey(key.parts);
+  var roster = restart ? getRoster_(folder.getParents().next()) : [];
   updateState_(folder, function (s) {
-    s.key = {topic: key.topic, parts: key.parts};
+    s.key = {topic: key.topic, parts: parts};
     s.keyFileIds = keyIds;
-    if (restart) { s.results = {}; s.table = null; }
+    if (restart) {
+      s.results = {};
+      s.table = null;
+      // chấm lại từ đầu: bỏ các tên tạm cô đặt cho ảnh (không có trong danh sách lớp), giữ tên thật
+      Object.keys(s.nameOverrides).forEach(function (id) {
+        if (roster.indexOf(s.nameOverrides[id]) < 0) delete s.nameOverrides[id];
+      });
+    }
   });
-  return true;
+  return {topic: key.topic, parts: parts};
 }
 
 /** Chấm một ảnh và lưu kết quả ngay vào folder buổi. */
 function gradePhoto(sessionId, fileId, keyParts, roster) {
   requireUser_();
   var file = DriveApp.getFileById(fileId);
+  keyParts = prepareKey(keyParts);
   var r = callGemini_(buildGradeRequest(keyParts, roster, imageOf_(fileId)));
   var out = normalizeGrade(r.data, keyParts, roster);
   out.fileId = fileId;
