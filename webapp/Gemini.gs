@@ -233,6 +233,7 @@ function normalizeGrade(data, keyParts, roster) {
   return {
     writtenName: written,
     matchedName: matched,
+    aiName: String(data.matched_name || '').trim(),  // tên AI đoán, để ghép lại khi cô sửa danh sách lớp
     keyMatches: data.key_matches !== false && (any || !items.length),
     items: items,
     unclear: data.unclear || []

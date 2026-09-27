@@ -429,6 +429,24 @@ function renamePartIn_(key, table, oldName, newName) {
   });
 }
 
+/**
+ * Danh sách lớp vừa sửa: ghép lại tên từng ảnh theo danh sách mới (không gọi Gemini, không chấm lại).
+ * Tên cô đã chọn mà không còn trong danh sách (tên tạm như A, B hay tên cũ bị sai) bị bỏ để ghép lại.
+ */
+function rematchNames_(state, roster) {
+  var overrides = state.nameOverrides || {};
+  Object.keys(overrides).forEach(function (id) {
+    if (roster.indexOf(overrides[id]) < 0) delete overrides[id];
+  });
+  Object.keys(state.results || {}).forEach(function (id) {
+    var r = state.results[id], written = String(r.writtenName || '').trim();
+    var m = matchName(written, roster);
+    if (!m && written && roster.indexOf(r.aiName) >= 0 && namesOverlap(written, r.aiName)) m = r.aiName;
+    if (!m && roster.indexOf(r.matchedName) >= 0) m = r.matchedName;  // kết quả cũ chưa lưu tên AI đoán
+    r.matchedName = m;
+  });
+}
+
 // ---------- chấm nhiều lần trong một buổi ----------
 
 /** Photo ids -> name the teacher chose in the review table (rows that have photos). */
@@ -478,6 +496,7 @@ function mergeTables(prev, next) {
     if (old) {
       used[prev.rows.indexOf(old)] = true;
       old.status = r.status;  // e.g. an unmatched photo the teacher has named is now a normal row
+      if (String(r.name || '').trim()) old.name = r.name;  // tên ghép lại theo danh sách lớp mới ("Việt" -> "Quốc Việt")
       return old;
     }
     var byNameOld = prevByName[String(r.name || '').trim()];

@@ -77,6 +77,10 @@ const MOCK = {{
   saveClassRoster: (id, names) => {{ MOCK_INFO.roster = names; return names; }},
   buildTable: () => MOCK_INFO.state.table,
   saveKey: (id, key) => ({{topic: key.topic, parts: key.parts}}),
+  uploadImage: (id, b64, mime, kind, replaceKey, takenAt) => {{
+    window.UPLOADS = (window.UPLOADS || []).concat([takenAt]);
+    return {{id: 'up' + window.UPLOADS.length, name: 'bai_' + takenAt + '.jpg', url: '#'}};
+  }},
   renamePart: (id, o, n) => {{
     const st = MOCK_INFO.state;
     st.key.parts.forEach((p) => {{ if (p.part === o) p.part = n; }});

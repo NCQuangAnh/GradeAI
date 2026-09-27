@@ -99,9 +99,50 @@ function fileByName_(folder, name) {
   return it.hasNext() ? it.next() : null;
 }
 
+var REMOVED_PREFIX = 'da_xoa_';  // file không xóa được (người khác tạo) thì đổi tên có tiền tố này để web bỏ qua
+
 function isPhoto_(file) {
   var n = file.getName().toLowerCase();
-  return file.getMimeType().indexOf('image/') === 0 && n.indexOf('key') !== 0 && n.indexOf('cham_bai') !== 0;
+  return file.getMimeType().indexOf('image/') === 0 && n.indexOf('key') !== 0 && n.indexOf('cham_bai') !== 0 &&
+    n.indexOf(REMOVED_PREFIX) !== 0;
+}
+
+/**
+ * Bỏ một file khỏi buổi. Drive chỉ cho CHỦ file chuyển vào Thùng rác; file do tài khoản khác (cô / trợ giảng)
+ * tạo thì đổi tên thành da_xoa_... để web không dùng nữa, chủ file tự xóa sau nếu muốn.
+ */
+function removeFile_(file) {
+  try {
+    file.setTrashed(true);
+  } catch (e) {
+    file.setName(REMOVED_PREFIX + file.getName());
+  }
+}
+
+/** Ghi đè nội dung một file (giữ nguyên file và link); chỉ cần quyền sửa, không cần là chủ file. */
+function overwriteFile_(fileId, blob) {
+  var res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=media', {
+    method: 'patch', contentType: blob.getContentType(), payload: blob.getBytes(), muteHttpExceptions: true,
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}
+  });
+  if (res.getResponseCode() >= 300) throw new Error('Drive ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 200));
+}
+
+/** Ảnh bảng chấm khi xuất lại: ghi đè ảnh cũ; không ghi đè được thì bỏ ảnh cũ và tạo ảnh mới. */
+function saveExportImage_(folder, blob) {
+  var olds = [], it = liveFiles_(folder, 'title = "' + CONFIG.IMAGE_NAME + '"');
+  while (it.hasNext()) olds.push(it.next());
+  if (olds.length) {
+    try {
+      overwriteFile_(olds[0].getId(), blob);
+      olds.slice(1).forEach(removeFile_);
+      return olds[0];
+    } catch (e) {
+      console.warn('Không ghi đè được ảnh bảng chấm, tạo ảnh mới: ' + e.message);
+    }
+  }
+  olds.forEach(removeFile_);
+  return folder.createFile(blob);
 }
 
 function isKey_(file) {
@@ -172,7 +213,7 @@ function uploadImage(sessionId, b64, mime, kind, replaceKey, takenAt) {
   if (isNaN(d.getTime())) d = new Date();
   var stamp = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss') +
     '_' + ('00' + d.getMilliseconds()).slice(-3);
-  if (kind === 'key' && replaceKey) keyFiles_(folder).forEach(function (f) { f.setTrashed(true); });
+  if (kind === 'key' && replaceKey) keyFiles_(folder).forEach(removeFile_);
   var name = (kind === 'key' ? 'key_' : 'bai_') + stamp + '.' + ext;
   var file = folder.createFile(Utilities.newBlob(Utilities.base64Decode(b64), mime, name));
   return {id: file.getId(), name: name, url: file.getUrl()};
@@ -231,7 +272,7 @@ function deleteFile(sessionId, fileId) {
   var inFolder = false, parents = file.getParents();
   while (parents.hasNext()) if (parents.next().getId() === sessionId) inFolder = true;
   if (!inFolder || !(isPhoto_(file) || isKey_(file))) throw new Error('Chỉ xóa được ảnh bài hoặc ảnh đáp án của buổi này.');
-  file.setTrashed(true);
+  removeFile_(file);
   var hadResult = false, hasKey = false;
   updateState_(folder, function (s) {
     hadResult = !!s.results[fileId];
@@ -302,8 +343,11 @@ function getClassRoster(classId) {
   return {names: getRoster_(folder), saved: !!savedRoster_(folder)};
 }
 
-/** Lưu danh sách lớp (mỗi phần tử một tên, bỏ trùng và dòng trống). */
-function saveClassRoster(classId, names) {
+/**
+ * Lưu danh sách lớp (mỗi phần tử một tên, bỏ trùng và dòng trống). sessionId: buổi đang mở, được ghép lại tên
+ * theo danh sách mới ngay (không gọi Gemini, không chấm lại).
+ */
+function saveClassRoster(classId, names, sessionId) {
   requireUser_();
   var folder = DriveApp.getFolderById(classId), seen = {}, clean = [];
   (names || []).forEach(function (n) {
@@ -315,7 +359,13 @@ function saveClassRoster(classId, names) {
   var f = fileByName_(folder, ROSTER_FILE);
   if (f) f.setContent(text);
   else folder.createFile(ROSTER_FILE, text, MimeType.PLAIN_TEXT);
-  CacheService.getScriptCache().remove('roster:' + classId);
+  // ghi thẳng vào bộ nhớ tạm: file vừa tạo có thể chưa tìm thấy ngay trên Drive
+  CacheService.getScriptCache().put('roster:' + classId, JSON.stringify(clean), 600);
+  if (sessionId) {
+    var session = DriveApp.getFolderById(sessionId), hasKey = false;
+    updateState_(session, function (s) { hasKey = !!s.key; rematchNames_(s, clean); });
+    if (hasKey) buildTable(sessionId);
+  }
   return clean;
 }
 
@@ -350,7 +400,7 @@ function getSessionInfo(sessionId) {
   var sheet = findSheet_(folder), date = parseSessionDate(folder.getName(), new Date().getFullYear());
   return {id: sessionId, name: folder.getName(), label: date ? date.label : folder.getName(),
           className: classFolder.getName(), photos: photos, keys: keys,
-          roster: getRoster_(classFolder), sheetUrl: sheet ? sheet.getUrl() : '',
+          roster: getRoster_(classFolder), rosterSaved: !!savedRoster_(classFolder), sheetUrl: sheet ? sheet.getUrl() : '',
           state: loadState_(folder)};
 }
 
@@ -584,9 +634,7 @@ function exportSession(sessionId, table, pngB64, ignoredIds) {
   }
   writeSheet_(ss.getSheets()[0], table, label);
 
-  var old = liveFiles_(folder, 'title = "' + CONFIG.IMAGE_NAME + '"');
-  while (old.hasNext()) old.next().setTrashed(true);
-  var img = folder.createFile(Utilities.newBlob(Utilities.base64Decode(pngB64), 'image/png', CONFIG.IMAGE_NAME));
+  var img = saveExportImage_(folder, Utilities.newBlob(Utilities.base64Decode(pngB64), 'image/png', CONFIG.IMAGE_NAME));
   var when = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm dd/MM/yyyy');
   updateState_(folder, function (s) { s.exportedAt = when; s.exportedAtMs = Date.now(); });
   CacheService.getScriptCache().remove('roster:' + classFolder.getId());  // danh sách lớp có thể vừa đổi

@@ -131,7 +131,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 1. Chọn **Lớp**. Chọn **Buổi** có sẵn, hoặc mở **+ Tạo buổi mới** > bấm **Hôm nay** (hoặc gõ `DD/MM/YY`) > **Tạo folder buổi**.
 2. **Chụp đáp án** (hoặc chọn ảnh key). Tải lại sẽ thay đáp án cũ.
    Đáp án nhiều trang: chọn nhiều ảnh cùng lúc, hoặc chụp trang 1 rồi bấm **+ Thêm trang đáp án**.
-3. **Chụp bài** từng tờ, hoặc **Chọn nhiều ảnh** từ thư viện. Ảnh được thu nhỏ trước khi tải lên.
+3. **Chụp bài** từng tờ, hoặc **Chọn nhiều ảnh** từ thư viện (chọn cả 30-40 ảnh một lần được). Ảnh được thu nhỏ
+   rồi tải lên lần lượt từng ảnh, đúng thứ tự đã chọn. Giữ màn hình sáng cho tới khi báo "Đã lưu ... ảnh".
    Bài 2 mặt: chụp mặt có tên trước, **ngay sau đó** chụp mặt sau. Mặt sau không có tên được tự ghép với ảnh chụp
    ngay trước nó (dòng đó tô vàng để cô kiểm tra). Mặt sau có ghi tên thì càng chắc.
    Ảnh nào lỗi (thẻ đỏ) thì chụp lại ảnh đó.
@@ -140,6 +141,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 4. **Ảnh trong buổi này**: lưới ảnh thu nhỏ của mọi ảnh bài và đáp án (nhãn Đáp án / Đã chấm / Chưa chấm).
    Bấm một ảnh để xem to; chạm vào ảnh để phóng to đọc chữ; vuốt trái/phải hoặc bấm Trước/Sau để chuyển ảnh.
    Ảnh chụp nhầm: bấm **Xóa ảnh này**, rồi bấm lần nữa để xác nhận. Ảnh vào Thùng rác Drive, khôi phục được trong 30 ngày.
+   Drive chỉ cho người tạo ảnh chuyển ảnh vào Thùng rác: ảnh do tài khoản kia tải lên thì web đổi tên thành
+   `da_xoa_...` và không dùng nữa (người tải lên có thể tự xóa sau).
    Ảnh đã chấm mà bị xóa thì bảng chấm tự lập lại: em đó được chấm lại từ các ảnh còn lại (hoặc thành "không có ảnh").
    Ở bảng chấm, bấm "ảnh 1", "ảnh 2" cũng mở đúng ảnh đó để xem hoặc xóa.
 
@@ -147,7 +150,10 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 0. **Danh sách lớp** (làm một lần cho mỗi lớp): bấm **Sửa danh sách lớp** cạnh dòng "Lớp có ... học sinh",
    dán tên học sinh (mỗi dòng một tên, đúng như muốn hiện trong bảng) > **Lưu danh sách**. Danh sách lưu ở file
    `danh_sach_lop.json` trong folder lớp, dùng cho mọi buổi của lớp đó. Có em mới hoặc nghỉ học thì sửa lại ở đây.
-   Chưa lưu danh sách thì web lấy tên từ file chấm của buổi gần nhất.
+   Chưa lưu danh sách thì web lấy tên từ file chấm của buổi gần nhất (web ghi rõ "cô kiểm tra lại"), file đó có thể
+   lẫn tên tạm như A, B nên hãy lưu danh sách chuẩn một lần.
+   Sửa danh sách khi đã chấm: bấm **Lưu danh sách** là bảng tự ghép lại tên theo danh sách mới, **không cần chấm lại**
+   (tên cũ không còn trong danh sách bị bỏ; các ô cô đã sửa ở dòng không đổi ảnh được giữ).
 1. **Đọc đáp án** > xem số mục có đúng không; sửa, **Xóa** mục thừa hoặc **+ Thêm mục** còn thiếu > **Đúng, chấm ... bài**.
    Mỗi phần có ô **Cách chấm**:
    - **như từ vựng (chính tả, nghĩa)**: dùng cho phần "từ / cụm từ / cấu trúc : nghĩa", ví dụ `admit + V-ing : thừa nhận làm gì`
@@ -174,8 +180,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 4. **Chốt và xuất**: web tạo file Sheet **Chấm bài <lớp> - <ngày>** và ảnh **cham_bai.png**
    trong đúng folder lớp/ngày.
 5. **Sửa sau khi đã xuất**: bảng vẫn sửa được ngay bên dưới (hôm sau thì mở buổi đó > **Xem / sửa bảng chấm**).
-   Sửa xong web báo đỏ "Bảng đã sửa sau lần xuất" > bấm **Xuất lại**: file Sheet được cập nhật, ảnh bảng chấm cũ
-   vào Thùng rác và thay bằng ảnh mới.
+   Sửa xong web báo đỏ "Bảng đã sửa sau lần xuất" > bấm **Xuất lại**: file Sheet và ảnh `cham_bai.png` được ghi đè
+   bằng bản mới (vẫn là file cũ, link giữ nguyên). Ô xem trước của Drive có thể chậm cập nhật vài phút; mở ảnh ra là thấy bản mới.
 
 **Chấm thêm ảnh vào buổi đã chấm** (ví dụ hôm nay 4 ảnh, hôm sau thêm 6 ảnh):
 - Tải 6 ảnh mới vào đúng buổi đó > tab Chấm bài hiện **"4 đã chấm, 6 ảnh mới"** > bấm **Chấm 6 ảnh mới**.
@@ -184,7 +190,9 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
   thì dòng đó được chấm lại và ghi chú "Có ảnh mới".
 - Xuất lại: file Sheet và ảnh bảng chấm được cập nhật đủ 10 bài.
 - Nếu đã thay ảnh đáp án, web báo và gợi ý đọc đáp án mới, chấm lại tất cả.
-- **Đọc lại đáp án và chấm lại tất cả**: tên cô đã chọn cho từng ảnh được giữ nếu tên đó có trong danh sách lớp;
+- **Chấm lại tất cả** (nút cạnh "Xem / sửa bảng chấm"): chấm lại mọi ảnh bằng đáp án đang dùng, không đọc lại đáp án.
+  **Đọc lại đáp án và chấm lại tất cả** (trong "Đáp án đang dùng"): đọc lại ảnh đáp án rồi chấm lại.
+  Cả hai lập lại bảng từ đầu (ô cô đã sửa sẽ mất); tên cô đã chọn cho từng ảnh được giữ nếu có trong danh sách lớp,
   tên tạm (như A, B, C) bị bỏ để AI ghép lại.
 - Dòng cô bấm **Xóa** (ví dụ ảnh chụp nhầm) thì ảnh đó không bị chấm lại nữa.
 

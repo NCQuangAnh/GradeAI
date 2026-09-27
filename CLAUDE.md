@@ -55,7 +55,12 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Test gọi Gemini thật (`gemini_live.js`, `tools/gemini_grade.py`) dùng `GEMINI_FREE_KEYS` trong `.env` trước, hết lượt mới
   sang `GEMINI_API_KEY` (`webapp/test/gemini_keys.js`).
 - Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.
-  "Chấm lại tất cả" bỏ các tên cô đặt tạm không có trong danh sách.
+  Lưu danh sách thì buổi đang mở được ghép lại tên (`rematchNames_`, dùng `writtenName` + `aiName`), không chấm lại.
+  "Chấm lại tất cả" (`regradeAll`, giữ đáp án) và "Đọc lại đáp án..." bỏ các tên cô đặt tạm không có trong danh sách.
+- Cô và trợ giảng là 2 tài khoản: Drive chỉ cho CHỦ file vào Thùng rác. `removeFile_` thử xóa, không được thì đổi tên
+  `da_xoa_...` (web bỏ qua). Xuất lại ghi đè `cham_bai.png` qua Drive REST (`overwriteFile_`, chỉ cần quyền sửa).
+- Tải nhiều ảnh (`handleFiles`): thu nhỏ ảnh kế tiếp khi ảnh trước tải xong, canvas thu về 0x0 sau khi dùng
+  (iPhone giới hạn tổng bộ nhớ canvas); vẽ lỗi thì tải ảnh gốc, không để hàng đợi treo.
 - Xem/xóa ảnh: `listFiles`, `getThumbs`, `getImage`, `deleteFile` (chuyển vào Thùng rác, bỏ kết quả, lập lại bảng).
   Mọi chỗ liệt kê file/folder dùng `liveFiles_` / `searchFolders("trashed = false")` để bỏ qua Thùng rác.
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.

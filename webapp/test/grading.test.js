@@ -251,6 +251,19 @@ test('classifyGeminiError decides how to rotate keys', () => {
   assert.equal(G.classifyGeminiError(400, { error: { code: 400, message: 'Invalid JSON payload' } }).kind, 'fatal');
 });
 
+test('saving a new class roster re-matches names without regrading', () => {
+  const r = (writtenName, matchedName, aiName) => ({ writtenName, matchedName, aiName, items: [] });
+  const state = {
+    results: { p1: r('Việt', 'Việt'), p2: r('', ''), p3: r('Q Viel', '', 'Quốc Việt'), p4: r('M.Khôi', 'Minh Khôi') },
+    nameOverrides: { p1: 'Việt', p2: 'B', p4: 'Minh Khôi' },  // placeholder names from a wrong roster
+  };
+  G.rematchNames_(state, ROSTER);
+  assert.deepEqual(plain(state.nameOverrides), { p4: 'Minh Khôi' });  // only names still in the roster stay
+  assert.equal(state.results.p1.matchedName, 'Quốc Việt');  // "Việt" now matches the full name
+  assert.equal(state.results.p2.matchedName, '');          // back side: paired again when the table is built
+  assert.equal(state.results.p3.matchedName, 'Quốc Việt');  // Gemini's guess, shares a word with the paper
+});
+
 test('renaming a key part renames its column and keeps the teacher edits and ids', () => {
   const key = { topic: 't', parts: plain(G.prepareKey([
     { part: 'CÔNG THỨC', kind: 'word', items: [{ en: 'admit + V-ing', vi: 'thừa nhận' }] },
