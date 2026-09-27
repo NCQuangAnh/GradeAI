@@ -146,8 +146,21 @@ function nameForms_(name) {
   return [{form: words.join(''), score: 3}, {form: initials, score: 2}, {form: last, score: 1}];
 }
 
-/** Match the name written on the paper to the class roster. Returns '' when unsure. */
+/**
+ * Match the name written on the paper to the class roster. Returns '' when unsure.
+ * Tên viết lại lần hai cạnh tên cũ (viết xấu nên viết lại): "Bách Bách" được đọc như "Bách".
+ */
 function matchName(written, roster) {
+  var hit = matchNameExact_(written, roster);
+  if (hit) return hit;
+  var toks = String(written || '').trim().split(/\s+/);
+  var once = toks.filter(function (t, i) {
+    return i === 0 || stripAccents(t).toLowerCase() !== stripAccents(toks[i - 1]).toLowerCase();
+  });
+  return once.length < toks.length ? matchNameExact_(once.join(' '), roster) : '';
+}
+
+function matchNameExact_(written, roster) {
   var w = stripAccents(written).toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!w) return '';
   var best = 0, hits = [];

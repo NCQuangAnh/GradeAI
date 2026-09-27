@@ -78,6 +78,7 @@ test('names written on the paper match the roster', () => {
     assert.equal(G.matchName(written, ROSTER), expected, written);
   }
   assert.equal(G.matchName('Mai', ROSTER), '');  // ambiguous: Khánh Mai, Ng Quỳnh Mai, Lê Q.Mai
+  assert.equal(G.matchName('Bách Bách', ROSTER), 'Gia Bách');  // name written twice (first one was messy)
 });
 
 test('penalties follow the agreed rules', () => {
