@@ -286,13 +286,20 @@ function pairBackSides_(photos) {
 }
 
 /**
- * Công thức em viết trùng đáp án khi bỏ qua cách viết (Ving = V-ing = doing, O = sb, dấu cách, dấu +, hoa thường,
- * phần trong ngoặc như "(to sb)") và nghĩa đúng thì tính đúng, dù Gemini chấm sai ("accuse sbof Ving").
+ * Chấm theo đáp án: mục đáp án có nghĩa ("admit + V-ing : thừa nhận làm gì") thì em phải viết đúng cả nghĩa;
+ * mục chỉ có công thức thì chỉ chấm công thức.
  */
-function sameAsKey_(it, k) {
-  if (!String(it.written_en || '').trim()) return false;
-  if (String(k.vi || '').trim() && !it.meaning_ok) return false;
-  return letterErrors(it.written_en, k.en) === 0;
+function needsMeaning_(k) {
+  return !!String(k.vi || '').trim();
+}
+
+/**
+ * Phần công thức: Gemini chấm, nhưng em viết trùng đáp án khi bỏ qua cách viết (Ving = V-ing = doing, O = sb,
+ * dấu cách, dấu +, hoa thường, phần trong ngoặc như "(to sb)") thì tính đúng dù Gemini chấm sai ("accuse sbof Ving").
+ */
+function formulaOk_(it, k) {
+  var written = String(it.written_en || '').trim();
+  return !!written && (!!it.correct || letterErrors(written, k.en) === 0);
 }
 
 /** Gộp các ảnh của một em: mỗi mục lấy bản em thực sự viết (ưu tiên bản đúng). */
@@ -348,7 +355,7 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
       kp.items.forEach(function (k) {
         var it = merged[k.id] || {};
         wordItems.push({id: k.id, key_en: k.en, written_en: it.written_en || '', written_vi: it.written_vi || '',
-                        meaning_ok: !!it.meaning_ok, other_word: !!it.other_word});
+                        meaning_ok: needsMeaning_(k) ? !!it.meaning_ok : true, other_word: !!it.other_word});
       });
     });
     var verdictById = {};
@@ -364,14 +371,18 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
           notes.push(k.en + (shown ? ' - em viết ' + shown : '') + ' - ' + v.reason);
           if (v.verdict === 'wrong') { wrongCount++; wrongWords.push(k.en); }
         } else {
-          var it = merged[k.id] || {};
-          if (it.correct || sameAsKey_(it, k)) return;
+          var it = merged[k.id] || {}, written = String(it.written_en || '').trim();
+          var okFormula = formulaOk_(it, k), okMeaning = !needsMeaning_(k) || !!it.meaning_ok;
+          if (okFormula && okMeaning) return;
           wrongCount++;
-          var badMeaning = String(k.vi || '').trim() && String(it.written_vi || '').trim() && !it.meaning_ok;
-          notes.push(kp.part.toLowerCase() + ' "' + k.en + '" - ' +
-            (String(it.written_en || '').trim() ? "em viết '" + it.written_en + "'" : 'không viết') +
-            (badMeaning ? " - nghĩa '" + it.written_vi + "' chưa đúng (đáp án: " + k.vi + ')' : '') +
-            (it.note ? ' (' + it.note + ')' : ''));
+          var why = [];
+          if (!written) why.push('không viết');
+          else if (!okFormula) why.push("em viết '" + written + "'");
+          if (written && !okMeaning) {
+            why.push(String(it.written_vi || '').trim() ? "nghĩa '" + it.written_vi + "' chưa đúng (đáp án: " + k.vi + ')'
+                                                         : 'thiếu nghĩa (đáp án: ' + k.vi + ')');
+          }
+          notes.push(kp.part.toLowerCase() + ' "' + k.en + '" - ' + why.join(', ') + (it.note ? ' (' + it.note + ')' : ''));
         }
       });
       parts[kp.part] = {correct: kp.items.length - wrongCount, total: kp.items.length, wrongCount: wrongCount};

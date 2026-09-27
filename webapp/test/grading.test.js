@@ -268,6 +268,23 @@ test('a formula written like the key (other notation, no spaces) counts as right
   assert.ok(row.notes.some((n) => n.includes('deny')) && row.notes.some((n) => n.includes('admit')));
 });
 
+test('the key decides whether the meaning is graded: "formula : meaning" needs both, a bare formula only the formula', () => {
+  const keyParts = G.prepareKey([
+    { part: 'CÔNG THỨC', kind: 'formula', items: [{ en: 'criticize sb for V-ing', vi: 'chỉ trích ai vì làm gì' },
+                                                  { en: 'warn sb against + V-ing', vi: 'cảnh báo ai không nên làm gì' },
+                                                  { en: 'S + V(s/es)', vi: '' }] },
+    { part: 'TỪ MỚI', kind: 'word', items: [{ en: 'opinion', vi: '' }] }]);
+  const ph = Object.assign(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, unclear: [], items: [
+    { id: '1.1', written_en: 'criticize sb for + Ving', written_vi: '', meaning_ok: false, correct: true },  // no meaning
+    { id: '1.2', written_en: 'warn sb against + Ving', written_vi: 'cảnh báo ai ko nên lmj', meaning_ok: true, correct: true },
+    { id: '1.3', written_en: 'S + V(s/es)', written_vi: '', meaning_ok: false, correct: true },
+    { id: '2.1', written_en: 'opinion', written_vi: '', meaning_ok: false }] }, keyParts, ROSTER), { fileName: 'a.jpg', url: '' });
+  const row = plain(G.assembleSession(keyParts, ROSTER, [ph], 'TA9', PENALTY)).rows.find((r) => r.name === 'Tú Linh');
+  assert.equal(row.values['CÔNG THỨC'], '2/3 công thức');
+  assert.equal(row.values['TỪ MỚI'], '1/1 từ');  // the key has no meaning for it
+  assert.ok(row.notes.some((n) => n.includes('criticize') && n.includes('thiếu nghĩa')));
+});
+
 test('saving a new class roster re-matches names without regrading', () => {
   const r = (writtenName, matchedName, aiName) => ({ writtenName, matchedName, aiName, items: [] });
   const state = {
