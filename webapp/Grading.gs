@@ -66,10 +66,18 @@ function editDistance_(a, b) {
 
 /**
  * Nhãn em tự ghi đầu dòng không tính là chữ của từ: "O : opinion" (OSASCOMP), "1. above", "a) below".
+ * Chữ viết dở rồi viết lại ngay ("S' Sibling", "SiSibling") cũng không tính: bỏ 1-3 chữ cái đầu lặp lại phần sau.
  */
 function writtenForms_(written) {
   var s = String(written || ''), bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
-  return bare === s ? [notationNorm_(s)] : [notationNorm_(s), notationNorm_(bare)];
+  var forms = [notationNorm_(s)];
+  if (bare !== s) forms.push(notationNorm_(bare));
+  forms.slice().forEach(function (f) {
+    for (var n = 1; n <= 3 && n * 2 < f.length; n++) {
+      if (f.slice(n, 2 * n) === f.slice(0, n)) forms.push(f.slice(n));
+    }
+  });
+  return forms;
 }
 
 function bestForm_(written, key) {

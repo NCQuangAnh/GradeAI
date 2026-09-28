@@ -285,6 +285,39 @@ test('the key decides whether the meaning is graded: "formula : meaning" needs b
   assert.ok(row.notes.some((n) => n.includes('criticize') && n.includes('thiếu nghĩa')));
 });
 
+test('a line Gemini filed under the wrong item (by meaning) goes back to the item it spells', () => {
+  const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [
+    { en: 'daughter-in-law', vi: 'con dâu' }, { en: 'sister-in-law', vi: 'chị em dâu' }, { en: 'brother-in-law', vi: 'anh em rể' }] }]);
+  const g = plain(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, unclear: [], items: [
+    { id: '1.1', written_en: 'sister in law', written_vi: 'con dâu', meaning_ok: true },
+    { id: '1.3', written_en: 'brother in low', written_vi: 'anh rể', meaning_ok: true }] }, keyParts, ROSTER));
+  const byId = Object.fromEntries(g.items.map((i) => [i.id, i]));
+  assert.equal(byId['1.1'].written_en, '');                 // daughter-in-law: not written
+  assert.equal(byId['1.2'].written_en, 'sister in law');
+  assert.equal(byId['1.2'].meaning_ok, false);              // judged again against sister-in-law
+  assert.equal(byId['1.3'].written_en, 'brother in low');   // a 1-letter slip stays where it is
+  assert.ok(g.unclear.some((u) => u.includes('sister in law')));
+  // the moved line is sent for a meaning re-check, then the answer is applied
+  const checks = plain(G.meaningChecks(g, keyParts));
+  assert.deepEqual(checks.map((c) => [c.id, c.en, c.written]), [['1.2', 'sister-in-law', 'con dâu']]);
+  G.applyMeaningChecks(g, [{ id: '1.2', ok: false }]);
+  assert.equal(g.items.find((i) => i.id === '1.2').meaning_ok, false);
+});
+
+test('a meaning the photo pass rejected is accepted when the re-check says it is right', () => {
+  const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [{ en: 'sister-in-law', vi: 'chị em dâu' },
+                                                                          { en: 'Twin', vi: 'anh/chị/em sinh đôi' }] }]);
+  const g = G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, unclear: [], items: [
+    { id: '1.1', written_en: 'Sister in Law', written_vi: 'chị em vợ', meaning_ok: false },
+    { id: '1.2', written_en: 'Twin', written_vi: '', meaning_ok: false }] }, keyParts, ROSTER);
+  assert.deepEqual(plain(G.meaningChecks(g, keyParts)).map((c) => c.id), ['1.1']);  // blank meaning is not re-checked
+  const req = plain(G.buildMeaningRequest(G.meaningChecks(g, keyParts)));
+  assert.ok(req.contents[0].parts[0].text.includes('1.1. sister-in-law | mẫu: chị em dâu | em viết: chị em vợ'));
+  G.applyMeaningChecks(g, [{ id: '1.1', ok: true }]);
+  assert.equal(g.items[0].meaning_ok, true);
+  assert.equal(g.items[1].meaning_ok, false);
+});
+
 test('saving a new class roster re-matches names without regrading', () => {
   const r = (writtenName, matchedName, aiName) => ({ writtenName, matchedName, aiName, items: [] });
   const state = {

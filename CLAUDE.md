@@ -51,6 +51,9 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   Mục đáp án có nghĩa thì em phải đúng cả nghĩa, không có nghĩa thì chỉ chấm phần tiếng Anh (`needsMeaning_`); nghĩa chính
   phải đủ ("buộc" thay "buộc tội" là sai), chữ viết tắt (lm, lmj, j, ko, đc, xl...) liệt kê trong GRADE_PROMPT.
   Đọc lại đáp án ra đúng các mục đã xác nhận thì giữ đáp án cũ (`reuseKeyLayout_`); trình sửa đáp án có nút Tách phần.
+  Sau khi đọc ảnh: dòng bị ghép nhầm mục (theo nghĩa) được chuyển về mục đúng chữ (`realignLines_`, tô vàng); nghĩa bị
+  chê mà em có viết thì hỏi lại bằng câu chỉ có chữ với `CONFIG.MEANING_MODELS` (`meaningChecks`, `callGeminiQuiet_`,
+  chỉ key miễn phí, lỗi thì giữ kết quả cũ). Mô hình flash đọc ảnh tốt hơn nhưng ~48 giây/ảnh nên không dùng để chấm chính.
   Mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
   Đổi tên phần (cột) sau khi chấm: `renamePart` / `renamePartIn_`, không chấm lại. `TỪ MỚI` là tên phần do cô chọn

@@ -33,12 +33,16 @@ var GRADE_PROMPT = [
   '',
   'BƯỚC 1 - CHÉP LẠI từng dòng học sinh viết, ĐÚNG TỪNG CHỮ CÁI như trên giấy.',
   'TUYỆT ĐỐI KHÔNG tự sửa lỗi chính tả: em viết "bellow" thì chép "bellow", không phải "below".',
-  'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại.',
+  'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại',
+  '(ví dụ "bố m̶e̶ chồng/vợ" thì chép "bố chồng/vợ"). Chữ viết dở rồi viết lại ngay cạnh cũng là chữ bỏ:',
+  '"S\' Sibling", "Si Sibling" thì chép "Sibling".',
   'Chỗ nào có tẩy xóa hoặc khó đọc mà ảnh hưởng tới kết quả thì ghi vào unclear (ví dụ "inside: chữ ngoài có thể bị gạch").',
   '',
   'BƯỚC 2 - GHÉP với đáp án THEO NỘI DUNG, KHÔNG theo thứ tự dòng. items: đúng 1 phần tử cho MỖI mã mục của',
   'đáp án (id như "1.3"). Học sinh thường viết khác thứ tự đáp án: dòng "deny + ving : phủ nhận" là mục',
   '"deny + V-ing" dù em viết ở dòng thứ mấy. Không tìm thấy dòng nào của mục đó trên ảnh thì written_en rỗng.',
+  'Ghép theo CHỮ TIẾNG ANH em viết, KHÔNG theo nghĩa: dòng "sister in law : con dâu" là mục sister-in-law',
+  '(nghĩa sai), không phải mục daughter-in-law. Mỗi dòng em viết chỉ ghép vào một mục.',
   'Dòng dạng "A = B : nghĩa" nghĩa là A và B DÙNG CHUNG nghĩa cuối dòng: "next to = Besind : bên cạnh"',
   'thì next to có written_en "next to", beside có written_en "Besind", cả hai written_vi "bên cạnh".',
   'Chữ tiếng Anh em viết (kể cả viết sai) KHÔNG BAO GIỜ là nghĩa tiếng Việt.',
@@ -49,6 +53,9 @@ var GRADE_PROMPT = [
   '  meaning_ok = true nếu nghĩa tiếng Việt đúng nghĩa của mục (không cần giống chữ đáp án, lỗi dấu nhỏ không sao). Thiếu nghĩa hoặc sai nghĩa là false.',
   '  Phần nghĩa chính (chữ dịch động từ/danh từ tiếng Anh) phải đủ và đúng: "buộc" thay cho "buộc tội",',
   '  "chỉ định" thay cho "chỉ trích" là SAI. Phần phụ đi kèm như "làm gì", "ai", "vì", "điều gì" được viết tắt.',
+  '  Nghĩa trong đáp án chỉ là MỘT cách dịch: nghĩa khác mà vẫn đúng với từ tiếng Anh là đúng (brother-in-law:',
+  '  anh/em rể, anh/em chồng, anh/em vợ; sister-in-law: chị/em dâu, chị/em chồng, chị/em vợ). Sai là khi nghĩa',
+  '  thuộc từ khác (sister-in-law : con dâu), thiếu phần chính hoặc hiểu sai từ.',
   '  Chữ viết tắt quen dùng hiểu như chữ đầy đủ: lm = làm; lmj, lmg, lj = làm gì; j = gì; ko, k, hk = không;',
   '  đc = được; ng = người; vs = với; xl = xin lỗi; cx = cũng; mn = mọi người; ntn = như thế nào; vd = ví dụ.',
   '  KHÔNG chấm chính tả tiếng Anh - chương trình tự làm. other_word = true chỉ khi em thay hẳn bằng một từ',
@@ -235,6 +242,8 @@ function normalizeGrade(data, keyParts, roster) {
                   meaning_ok: !!it.meaning_ok, other_word: !!it.other_word, correct: !!it.correct, note: it.note || ''});
     });
   });
+  var unclear = (data.unclear || []).slice();
+  realignLines_(items, prepareKey(keyParts), unclear);
   var written = String(data.written_name || '').trim();
   var matched = matchName(written, roster);
   // tên AI đoán chỉ nhận khi giấy có tên và có chung ít nhất một chữ (tránh "T.Vy" thành "Minh Khôi")
@@ -248,6 +257,80 @@ function normalizeGrade(data, keyParts, roster) {
     aiName: String(data.matched_name || '').trim(),  // tên AI đoán, để ghép lại khi cô sửa danh sách lớp
     keyMatches: data.key_matches !== false && (any || !items.length),
     items: items,
-    unclear: data.unclear || []
+    unclear: unclear
   };
+}
+
+/**
+ * Gemini đôi khi ghép một dòng vào nhầm mục theo nghĩa ("sister in law : con dâu" vào mục daughter-in-law).
+ * Dòng nào chữ tiếng Anh trùng hẳn (sai tối đa 1 chữ cái) với một mục khác đang trống, còn với mục hiện tại
+ * thì khác xa, được chuyển về đúng mục. Nghĩa của nó phải chấm lại (meaning_ok = false, để hỏi lại ở meaningChecks).
+ */
+function realignLines_(items, keyParts, unclear) {
+  var keyById = {}, byId = {};
+  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
+  items.forEach(function (it) { byId[it.id] = it; });
+  items.forEach(function (it) {
+    if (!it.written_en) return;
+    var here = letterErrors(it.written_en, keyById[it.id].en);
+    if (here < 3) return;
+    var best = null, bestErr = 2;
+    items.forEach(function (o) {
+      if (o === it || o.written_en) return;
+      var e = letterErrors(it.written_en, keyById[o.id].en);
+      if (e < bestErr) { bestErr = e; best = o; }
+    });
+    if (!best) return;
+    ['written_en', 'written_vi', 'other_word', 'correct', 'note'].forEach(function (f) { best[f] = it[f]; });
+    best.meaning_ok = false;
+    best.moved = true;
+    it.written_en = ''; it.written_vi = ''; it.meaning_ok = false; it.correct = false; it.other_word = false; it.note = '';
+    unclear.push('dòng "' + best.written_en + '" AI ghép vào mục ' + keyById[it.id].en + ', đã chuyển về mục ' +
+                 keyById[best.id].en);
+  });
+}
+
+var MEANING_PROMPT = [
+  'Kiểm tra nghĩa tiếng Việt học sinh viết cho từng từ/cụm tiếng Anh.',
+  'ok = true nếu nghĩa em viết là MỘT nghĩa đúng của từ tiếng Anh, dù khác cách dịch mẫu (cách dịch mẫu chỉ để tham khảo).',
+  'ok = false nếu nghĩa thuộc từ khác hoặc hiểu sai, hoặc thiếu một chữ làm đổi nghĩa: từ ghép phải đủ,',
+  '"buộc tội" (accuse) khác "buộc" (ép, trói); "chỉ trích" khác "chỉ". Xét chữ dịch chính trước, rồi mới bỏ qua phần phụ.',
+  'Phần phụ như "làm gì", "ai", "vì" được bỏ hoặc viết tắt. Viết tắt: lm = làm; lmj, lmg = làm gì; j = gì; ko = không;',
+  'đc = được; xl = xin lỗi; ng = người; vs = với.'
+].join('\n');
+
+/**
+ * Lần đọc ảnh chấm nghĩa chưa ổn định (có lúc chê "chị em vợ" cho sister-in-law). Những mục bị chê nghĩa mà em có
+ * viết nghĩa được hỏi lại bằng một câu chỉ có chữ, mô hình mạnh hơn trả lời chắc hơn nhiều.
+ */
+function meaningChecks(result, keyParts) {
+  var keyById = {};
+  prepareKey(keyParts).forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
+  return (result.items || []).filter(function (it) {
+    var k = keyById[it.id];
+    return k && String(k.vi || '').trim() && it.written_en && String(it.written_vi || '').trim() && !it.meaning_ok;
+  }).map(function (it) {
+    var k = keyById[it.id];
+    return {id: it.id, en: k.en, key: k.vi, written: it.written_vi};
+  });
+}
+
+function buildMeaningRequest(checks) {
+  var list = checks.map(function (c) { return c.id + '. ' + c.en + ' | mẫu: ' + c.key + ' | em viết: ' + c.written; });
+  return {
+    contents: [{role: 'user', parts: [{text: MEANING_PROMPT + '\n\n' + list.join('\n')}]}],
+    generationConfig: {responseMimeType: 'application/json', temperature: 0, responseSchema: {
+      type: 'ARRAY', items: {type: 'OBJECT', properties: {id: {type: 'STRING'}, ok: {type: 'BOOLEAN'}}, required: ['id', 'ok']}
+    }}
+  };
+}
+
+/** Nhận câu trả lời kiểm tra nghĩa: mục được xác nhận đúng nghĩa thì sửa meaning_ok. */
+function applyMeaningChecks(result, answers) {
+  var ok = {};
+  (answers || []).forEach(function (a) { if (a && a.ok === true) ok[String(a.id).trim()] = true; });
+  (result.items || []).forEach(function (it) {
+    if (ok[it.id]) { it.meaning_ok = true; it.meaningRechecked = true; }
+  });
+  result.meaningCheck = 'done';
 }

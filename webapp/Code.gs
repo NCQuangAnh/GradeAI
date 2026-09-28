@@ -11,6 +11,8 @@ var CONFIG = {
   ROOT_FOLDER_ID: '1x-tIEoZAp5RdGpA_MCenUJ1iZXUxwGbB',       // folder gốc chứa các folder lớp (chế độ Bị hạn chế)
   OLD_SHEET_ID: '1ecvzosXzZonldGXlsd1TI_Ux1TnbpF_7ZV6lvkqPgNk',  // "Lưu chấm bài tại đây" - chỉ để lấy danh sách lớp lần đầu
   MODEL: 'gemini-3.1-flash-lite',
+  // chỉ để hỏi lại những nghĩa bị chê (ít chữ, không có ảnh); mô hình đầu hay quá tải (503) nên có mô hình dự phòng
+  MEANING_MODELS: ['gemini-3.8-flash', 'gemini-3.5-flash'],
   PRICE_USD_PER_M: {input: 0.25, output: 1.50},  // giá Gemini 3.1 Flash-Lite, xem ngày 27/09/2026
   SHEET_PREFIX: 'Chấm bài',
   IMAGE_NAME: 'cham_bai.png',
@@ -522,6 +524,30 @@ function callGemini_(body) {
     (problems.length ? problems.join('; ') : 'Tất cả key đang nghỉ hoặc hết hạn mức hôm nay.'));
 }
 
+/**
+ * Gọi phụ (hỏi lại nghĩa): chỉ dùng key miễn phí đang dùng được; mỗi mô hình thử 2 key, nghỉ 1 giây giữa các lần.
+ * Không được thì trả null (giữ kết quả đọc ảnh). Không ghi trạng thái hết lượt vào KEY_STATE vì các mô hình này
+ * có hạn mức riêng, không ảnh hưởng việc chấm chính.
+ */
+function callGeminiQuiet_(body, models) {
+  var state = loadKeyState_(), today = pacificDay_();
+  var keys = geminiKeys_().filter(function (k) { return !k.paid && !keyResting_(state[keyId_(k.key)], today, Date.now()); });
+  for (var m = 0; m < models.length; m++) {
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[m] + ':generateContent';
+    for (var i = 0; i < Math.min(2, keys.length); i++) {
+      var res = UrlFetchApp.fetch(url, {
+        method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
+        headers: {'x-goog-api-key': keys[(m + i) % keys.length].key}, muteHttpExceptions: true
+      });
+      if (res.getResponseCode() === 200) {
+        try { return parseGeminiResponse(JSON.parse(res.getContentText())); } catch (e) { return null; }
+      }
+      Utilities.sleep(1000);
+    }
+  }
+  return null;
+}
+
 /** Trạng thái các key cho giao diện (không trả về key). */
 function keyStatus() {
   requireUser_();
@@ -582,6 +608,12 @@ function gradePhoto(sessionId, fileId, keyParts, roster) {
   keyParts = prepareKey(keyParts);
   var r = callGemini_(buildGradeRequest(keyParts, roster, imageOf_(fileId)));
   var out = normalizeGrade(r.data, keyParts, roster);
+  var checks = meaningChecks(out, keyParts);
+  if (checks.length) {
+    var m = callGeminiQuiet_(buildMeaningRequest(checks), CONFIG.MEANING_MODELS);
+    if (m) applyMeaningChecks(out, m.data);
+    else out.meaningCheck = 'skipped';  // không hỏi lại được: giữ kết quả đọc ảnh
+  }
   out.fileId = fileId;
   out.fileName = file.getName();
   out.url = file.getUrl();
