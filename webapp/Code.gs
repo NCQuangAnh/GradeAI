@@ -498,46 +498,60 @@ function keyResting_(st, today, now) {
   return st && ((st.day && st.day === today) || (st.until && st.until > now));
 }
 
+/**
+ * Gọi Gemini, xoay vòng key (miễn phí trước). Lượt nào chỉ gặp lỗi tạm thời (Google quá tải 503, mạng chập chờn)
+ * thì đợi rồi thử lại cả vòng key, tối đa 2 lần nữa.
+ */
 function callGemini_(body) {
-  var keys = geminiKeys_(), state = loadKeyState_(), today = pacificDay_(), problems = [];
-  for (var i = 0; i < keys.length; i++) {
-    var k = keys[i], id = keyId_(k.key);
-    if (keyResting_(state[id], today, Date.now())) continue;
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-      (k.paid ? CONFIG.MODEL_PAID : CONFIG.MODEL_FREE) + ':generateContent';
-    var res;
-    try {
-      res = UrlFetchApp.fetch(url, {
-        method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
-        headers: {'x-goog-api-key': k.key}, muteHttpExceptions: true
-      });
-    } catch (e) {  // mạng lỗi hoặc Gemini trả lời quá lâu: thử key tiếp, không đánh dấu key này hết lượt
-      problems.push('key ' + k.label + ': ' + e.message);
-      continue;
+  var keys = geminiKeys_(), today = pacificDay_(), problems = [], waits = [3000, 8000];
+  for (var pass = 0; pass <= waits.length; pass++) {
+    var state = loadKeyState_(), transient = false;
+    problems = [];
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i], id = keyId_(k.key);
+      if (keyResting_(state[id], today, Date.now())) continue;
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+        (k.paid ? CONFIG.MODEL_PAID : CONFIG.MODEL_FREE) + ':generateContent';
+      var res;
+      try {
+        res = UrlFetchApp.fetch(url, {
+          method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
+          headers: {'x-goog-api-key': k.key}, muteHttpExceptions: true
+        });
+      } catch (e) {  // mạng lỗi hoặc Gemini trả lời quá lâu: thử key tiếp, không đánh dấu key này hết lượt
+        transient = true;
+        problems.push('key ' + k.label + ': ' + e.message);
+        continue;
+      }
+      var code = res.getResponseCode(), json;
+      try { json = JSON.parse(res.getContentText()); } catch (e) { json = {}; }
+      if (code === 200) {
+        countUse_(id, today);
+        var parsed = parseGeminiResponse(json);
+        parsed.keyLabel = k.label;
+        parsed.paid = k.paid;
+        parsed.costUsd = k.paid ? parsed.inputTokens * CONFIG.PRICE_USD_PER_M.input / 1e6 +
+          parsed.outputTokens * CONFIG.PRICE_USD_PER_M.output / 1e6 : 0;
+        return parsed;
+      }
+      var c = classifyGeminiError(code, json);
+      if (c.kind === 'fatal') throw new Error(c.reason);
+      if (c.kind === 'retry') {
+        transient = true;
+      } else {
+        state = loadKeyState_();  // đọc lại để không ghi đè số lượt vừa đếm
+        if (c.kind === 'daily' || c.kind === 'bad_key') state[id] = {day: today, reason: c.reason, label: k.label};
+        if (c.kind === 'minute') state[id] = {until: Date.now() + c.retrySec * 1000, reason: c.reason, label: k.label};
+        saveKeyState_(state);
+      }
+      problems.push('key ' + k.label + ': ' + c.reason);
     }
-    var code = res.getResponseCode(), json;
-    try { json = JSON.parse(res.getContentText()); } catch (e) { json = {}; }
-    if (code === 200) {
-      countUse_(id, today);
-      var parsed = parseGeminiResponse(json);
-      parsed.keyLabel = k.label;
-      parsed.paid = k.paid;
-      parsed.costUsd = k.paid ? parsed.inputTokens * CONFIG.PRICE_USD_PER_M.input / 1e6 +
-        parsed.outputTokens * CONFIG.PRICE_USD_PER_M.output / 1e6 : 0;
-      return parsed;
-    }
-    var c = classifyGeminiError(code, json);
-    if (c.kind === 'fatal') throw new Error(c.reason);
-    if (c.kind !== 'retry') {
-      state = loadKeyState_();  // đọc lại để không ghi đè số lượt vừa đếm
-      if (c.kind === 'daily' || c.kind === 'bad_key') state[id] = {day: today, reason: c.reason, label: k.label};
-      if (c.kind === 'minute') state[id] = {until: Date.now() + c.retrySec * 1000, reason: c.reason, label: k.label};
-      saveKeyState_(state);
-    }
-    problems.push('key ' + k.label + ': ' + c.reason);
+    if (!transient || pass === waits.length) break;
+    Utilities.sleep(waits[pass]);
   }
   throw new Error('Không còn key nào dùng được lúc này. ' +
-    (problems.length ? problems.join('; ') : 'Tất cả key đang nghỉ hoặc hết hạn mức hôm nay.'));
+    (problems.length ? problems.join('; ') + '. Nếu là "Google đang lỗi (503)" thì Google đang quá tải: đợi vài phút rồi bấm "Chấm ảnh mới".'
+                     : 'Tất cả key đang nghỉ hoặc hết hạn mức hôm nay.'));
 }
 
 /**
