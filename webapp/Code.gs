@@ -10,7 +10,7 @@
 var CONFIG = {
   ROOT_FOLDER_ID: '1x-tIEoZAp5RdGpA_MCenUJ1iZXUxwGbB',       // folder gốc chứa các folder lớp (chế độ Bị hạn chế)
   OLD_SHEET_ID: '1ecvzosXzZonldGXlsd1TI_Ux1TnbpF_7ZV6lvkqPgNk',  // "Lưu chấm bài tại đây" - chỉ để lấy danh sách lớp lần đầu
-  // gemini-3.5-flash-lite đã thử 28/09/2026: đọc chữ kém và thất thường hơn 3.1 (18 bài TA6: 5 bài đọc nhầm so với 1),
+  // gemini-3.5-flash-lite đã thử 28/09/2026: đọc chữ kém và thất thường hơn 3.1 (18 bài TA6: 6 bài đọc nhầm so với 1),
   // thỉnh thoảng một lượt ~290 giây, nên key miễn phí vẫn dùng 3.1
   MODEL_FREE: 'gemini-3.1-flash-lite',
   MODEL_PAID: 'gemini-3.1-flash-lite',  // key trả phí giữ mô hình đã biết giá (PRICE_USD_PER_M)
