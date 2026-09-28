@@ -140,6 +140,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
    Bài 2 mặt: chụp mặt có tên trước, **ngay sau đó** chụp mặt sau. Mặt sau không có tên được tự ghép với ảnh chụp
    ngay trước nó (dòng đó tô vàng để cô kiểm tra). Mặt sau có ghi tên thì càng chắc.
    Ảnh nào lỗi (thẻ đỏ) thì chụp lại ảnh đó.
+   Ảnh để so sánh (ví dụ ảnh bảng chấm tay) đặt tên bắt đầu bằng **cham** (`cham-tay`, `chấm tay`...) hoặc **ket_qua**
+   thì web không chấm ảnh đó.
    Ảnh **mờ hoặc tối** được báo ngay (khung vàng): bấm **Bỏ, chụp lại** rồi chụp lại, hoặc **Vẫn tải lên** nếu cô thấy vẫn đọc được.
    Việc kiểm tra chạy trên điện thoại, không tốn tiền. Trang giấy gần như trắng (em viết rất ít) đôi khi cũng bị báo mờ: cứ bấm Vẫn tải lên.
 4. **Ảnh trong buổi này**: lưới ảnh thu nhỏ của mọi ảnh bài và đáp án (nhãn Đáp án / Đã chấm / Chưa chấm).

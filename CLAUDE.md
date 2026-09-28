@@ -66,6 +66,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.
   Lưu danh sách thì buổi đang mở được ghép lại tên (`rematchNames_`, dùng `writtenName` + `aiName`), không chấm lại.
   "Chấm lại tất cả" (`regradeAll`, giữ đáp án) và "Đọc lại đáp án..." bỏ các tên cô đặt tạm không có trong danh sách.
+- Ảnh bài làm (`isPhoto_`): mọi ảnh trừ tên bắt đầu bằng key, cham (cham_bai, cham-tay, "chấm tay"), ket_qua, da_xoa_
+  (so sau khi bỏ dấu). `buildTable` bỏ kết quả của ảnh không còn là ảnh bài làm.
 - Cô và trợ giảng là 2 tài khoản: Drive chỉ cho CHỦ file vào Thùng rác. `removeFile_` thử xóa, không được thì đổi tên
   `da_xoa_...` (web bỏ qua). Xuất lại ghi đè `cham_bai.png` qua Drive REST (`overwriteFile_`, chỉ cần quyền sửa).
 - Tải nhiều ảnh (`handleFiles`): thu nhỏ ảnh kế tiếp khi ảnh trước tải xong, canvas thu về 0x0 sau khi dùng

@@ -106,10 +106,16 @@ function fileByName_(folder, name) {
 
 var REMOVED_PREFIX = 'da_xoa_';  // file không xóa được (người khác tạo) thì đổi tên có tiền tố này để web bỏ qua
 
+/**
+ * Ảnh bài làm của học sinh. Không chấm: ảnh đáp án (key...), ảnh bảng chấm hay kết quả chấm tay cô tải lên để so
+ * (cham_bai, cham-tay, "chấm tay", ket_qua...) và ảnh đã bỏ (da_xoa_...).
+ */
+var NOT_PHOTO_PREFIXES = ['key', 'cham', 'ket_qua', REMOVED_PREFIX];
+
 function isPhoto_(file) {
-  var n = file.getName().toLowerCase();
-  return file.getMimeType().indexOf('image/') === 0 && n.indexOf('key') !== 0 && n.indexOf('cham_bai') !== 0 &&
-    n.indexOf(REMOVED_PREFIX) !== 0;
+  var n = stripAccents(file.getName()).toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  return file.getMimeType().indexOf('image/') === 0 &&
+    !NOT_PHOTO_PREFIXES.some(function (p) { return n.indexOf(p) === 0; });
 }
 
 /**
@@ -652,9 +658,9 @@ function buildTable(sessionId) {
   var folder = DriveApp.getFolderById(sessionId), classFolder = folder.getParents().next();
   var roster = getRoster_(classFolder), state = loadState_(folder);
   if (!state.key) throw new Error('Chưa có đáp án đã xác nhận cho buổi này.');
-  // ảnh đã bị xóa khỏi folder thì bỏ kết quả của ảnh đó
+  // ảnh đã bị xóa khỏi folder, hoặc không phải ảnh bài làm (ví dụ ảnh chấm tay lỡ bị chấm), thì bỏ kết quả của ảnh đó
   var present = {}, files = liveFiles_(folder);
-  while (files.hasNext()) present[files.next().getId()] = true;
+  while (files.hasNext()) { var f = files.next(); if (isPhoto_(f)) present[f.getId()] = true; }
   Object.keys(state.results).forEach(function (id) { if (!present[id]) delete state.results[id]; });
 
   var t = assembleSession(state.key.parts, roster,
