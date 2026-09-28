@@ -1068,10 +1068,10 @@ function renderTable() {
     <h2>Bảng chấm - cô duyệt và sửa trực tiếp <span id="saveState" class="muted"></span></h2>
     <p class="muted">Sửa thẳng vào ô, tự lưu. Dòng <b>tô vàng</b> nên xem lại.
       Chép phạt là đề xuất theo luật chung. Chốt xong bấm nút xuất ở đáy màn hình; xuất rồi vẫn sửa và xuất lại được.</p>
-    ${unnamed.length ? `<h2 class="section-title">Bài chưa có tên (${unnamed.length})</h2>
+    ${unnamed.length ? `<h2 class="section-title">Bài chưa có tên (${unnamed.reduce((n, i) => n + t.rows[i].photos.length, 0)} ảnh)</h2>
       <p class="muted">AI chưa nhận ra tên. Xem ảnh rồi chọn tên em đó, kể cả em đã có bài (bài nhiều trang sẽ tự gộp và chấm lại).
         Trên máy tính có thể kéo thả ô ảnh vào dòng của em.</p>
-      <div class="unassigned">${unnamed.map((i) => unnamedCard(t.rows[i], i, cols)).join('')}</div>` : ''}
+      <div class="unassigned">${unnamed.map((i) => t.rows[i].photos.map((p) => unnamedCard(t.rows[i], i, cols, p)).join('')).join('')}</div>` : ''}
     <h2 class="section-title">Đã có bài (${graded.length})</h2>
     <div class="tablewrap"><table class="review">${head}
       <tbody>${graded.map((i) => rowHtml(t.rows[i], i, cols)).join('')}</tbody></table></div>
@@ -1122,16 +1122,19 @@ function assignOptions() {
   return names.map((n) => `<option value="${esc(n)}">${esc(n)}${has.has(n) ? ' (đã có bài)' : ''}</option>`).join('');
 }
 
-/** Một ảnh chưa có tên: xem ảnh, AI đọc được gì, chọn tên (hoặc kéo vào dòng của em). */
-function unnamedCard(r, i, cols) {
-  const ids = (r.photos || []).map((p) => p.id).filter(Boolean);
+/**
+ * Một ảnh chưa có tên: xem ảnh, AI đọc được gì, chọn tên (hoặc kéo vào dòng của em). Mỗi ảnh một ô, kể cả dòng
+ * cũ đã lỡ gom nhiều ảnh (bản trước gom theo tên trên giấy), để cô gán từng ảnh cho đúng em.
+ */
+function unnamedCard(r, i, cols, photo) {
+  const single = (r.photos || []).length === 1;
   const written = ((String(r.notes || '').match(/giấy ghi "([^"]*)"/) || [])[1] || '').trim();
-  const score = cols.filter((c) => c !== 'CHÉP PHẠT').map((c) => (r.values || {})[c]).filter(Boolean).join(' - ');
-  return `<div class="ucard" draggable="true" data-ids="${esc(ids.join(','))}">
-    ${(r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}"><b>Xem ảnh${r.photos.length > 1 ? ' ' + (k + 1) : ''}</b></a>`).join(' ')}
+  const score = single ? cols.filter((c) => c !== 'CHÉP PHẠT').map((c) => (r.values || {})[c]).filter(Boolean).join(' - ') : '';
+  return `<div class="ucard" draggable="true" data-ids="${esc(photo.id)}">
+    <a href="#" data-view="${esc(photo.id)}"><b>Xem ảnh</b></a>
     <div class="muted">Tên trên giấy: ${written && written !== '?' ? esc(written) : 'không có'}${score ? '<br>AI chấm: ' + esc(score) : ''}</div>
-    <select data-assign="${esc(ids.join(','))}" aria-label="Gán ảnh cho học sinh"><option value="">Gán cho học sinh...</option>${assignOptions()}</select>
-    <div class="row" style="margin-top:6px"><button class="del" data-del="${i}" type="button">Bỏ ảnh này (không chấm)</button></div>
+    <select data-assign="${esc(photo.id)}" aria-label="Gán ảnh cho học sinh"><option value="">Gán cho học sinh...</option>${assignOptions()}</select>
+    ${single ? `<div class="row" style="margin-top:6px"><button class="del" data-del="${i}" type="button">Bỏ ảnh này (không chấm)</button></div>` : ''}
   </div>`;
 }
 
