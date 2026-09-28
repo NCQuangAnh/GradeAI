@@ -724,8 +724,9 @@ function buildTable(sessionId) {
  */
 function assignPhotos(sessionId, fileIds, name) {
   requireUser_();
-  name = String(name || '').trim();
-  updateState_(DriveApp.getFolderById(sessionId), function (s) {
+  var folder = DriveApp.getFolderById(sessionId);
+  name = canonicalName(name, getRoster_(folder.getParents().next()));
+  updateState_(folder, function (s) {
     (fileIds || []).forEach(function (id) { s.nameOverrides[id] = name || UNASSIGNED; });
   });
   return buildTable(sessionId);

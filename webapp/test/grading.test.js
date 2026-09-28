@@ -194,6 +194,20 @@ test('a two-sided paper (back side without a name) is one student, word-style pa
   assert.deepEqual(t3.rows.find((r) => r.name === 'Minh Khôi').photos.map((p) => p.id).sort(), ['bai_5', 'bai_6']);
 });
 
+test('names typed in another case join the roster name (vinh = Vinh)', () => {
+  assert.equal(G.canonicalName('  minh   KHÔI ', ROSTER), 'Minh Khôi');
+  assert.equal(G.canonicalName('Người Mới', ROSTER), 'Người Mới');
+  const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [{ en: 'above', vi: 'trên' }] }]);
+  const ph = (id) => ({ fileId: id, fileName: id + '.jpg', url: '', writtenName: '', matchedName: '', keyMatches: true,
+    unclear: [], items: [{ id: '1.1', written_en: 'above', written_vi: 'trên', meaning_ok: true }] });
+  const t = plain(G.assembleSession(keyParts, ROSTER,
+    G.resultsForTable({ a: ph('a'), b: ph('b') }, { a: 'minh khôi', b: 'Minh Khôi' }, []), 'TA6', PENALTY));
+  const rows = t.rows.filter((r) => G.nameKey(r.name) === 'minh khôi');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].name, 'Minh Khôi');
+  assert.deepEqual(rows[0].photos.map((p) => p.id).sort(), ['a', 'b']);
+});
+
 test('a photo the teacher took out of a row stays unassigned and is not paired again', () => {
   const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [{ en: 'above', vi: 'trên' }, { en: 'below', vi: 'dưới' }] }]);
   const ph = (id, name, en) => ({ fileId: id, fileName: id + '.jpg', url: '', writtenName: name, matchedName: name ? 'Tú Linh' : '',

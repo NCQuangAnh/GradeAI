@@ -428,8 +428,10 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
   // ảnh chưa nhận ra tên: mỗi ảnh một dòng riêng (không gom), cô gán từng ảnh cho đúng em
   var byName = {}, unmatched = [];
   photos.forEach(function (ph) {
-    if (ph.matchedName) (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph);
-    else unmatched.push([ph]);
+    if (ph.matchedName) {
+      ph.matchedName = canonicalName(ph.matchedName, roster);  // "vinh" cô gõ = "Vinh" trong danh sách lớp
+      (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph);
+    } else unmatched.push([ph]);
   });
 
   function gradeRow(name, photos) {
@@ -584,6 +586,18 @@ function overridesFromTable(table) {
 }
 
 /** Saved per-photo results -> list for assembleSession, with the teacher's name choices applied. */
+/** Tên so sánh không phân biệt hoa thường và khoảng trắng thừa ("vinh" = "Vinh"). */
+function nameKey(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** Tên cô gõ trùng một tên trong danh sách lớp (không kể hoa thường) thì dùng đúng tên trong danh sách. */
+function canonicalName(name, roster) {
+  var k = nameKey(name);
+  for (var i = 0; i < (roster || []).length; i++) if (nameKey(roster[i]) === k) return roster[i];
+  return String(name || '').trim();
+}
+
 /** Tên cô chọn cho một ảnh khi tách ảnh ra khỏi dòng của một em: ảnh về mục "chưa có tên", AI không tự ghép lại. */
 var UNASSIGNED = '__chua_co_ten__';
 

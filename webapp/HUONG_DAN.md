@@ -186,8 +186,9 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
    Bảng chia 3 phần:
    - **Bài chưa có tên**: mỗi ảnh AI chưa nhận ra tên là một ô riêng. Bấm "Xem ảnh", rồi chọn tên ở ô "Gán cho học sinh"
      (trên máy tính có thể kéo thả ô ảnh vào dòng của em). Gán cho em đã có bài thì các ảnh tự gộp và chấm lại cả bài.
-   - **Đã có bài**: mỗi em một dòng. Ảnh nào không phải bài của em thì bấm **tách** cạnh "ảnh 1/2..." để đưa về mục
-     "Bài chưa có tên".
+   - **Đã có bài**: mỗi em một dòng. Ảnh nào không phải bài của em thì bấm **tách** (dưới "ảnh 1 ảnh 2"), rồi chọn ảnh
+     cần tách; ảnh đó về mục "Bài chưa có tên". Bấm "Thôi" nếu bấm nhầm.
+   Tên gõ khác hoa thường ("vinh", "VINH") được hiểu là tên trong danh sách lớp ("Vinh").
    - **Chưa có bài**: chọn Vắng, Không có bài hoặc để trống.
    Web không cho xuất khi còn dòng chưa có tên hoặc trùng tên.
    Sửa thẳng vào ô: điểm ("12/13 từ"), từ viết sai, ghi chú. Mọi chỉnh sửa tự lưu.

@@ -146,7 +146,8 @@
   table.review .penSel { min-width: 170px; }
   table.review .penText { margin-top: 4px; }
   table.review .links a { font-size: 13px; font-weight: 600; margin-right: 10px; display: inline-block; padding: 4px 0; }
-  table.review .links .mini { margin-right: 8px; }
+  table.review .splitbox { margin-top: 2px; font-size: 13px; }
+  table.review .splitbox .mini { margin-right: 6px; }
   table.review tr.drop td { outline: 2px dashed var(--violet); background: var(--marker-soft); }
   .unassigned { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 14px; }
   .ucard { border: 1px dashed var(--pen); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--pen-soft); }
@@ -1096,7 +1097,20 @@ function renderTable() {
   $('tableBox').querySelectorAll('select[data-assign]').forEach((el) => (el.onchange = () => {
     if (el.value) assignPhotos(el.dataset.assign.split(','), el.value);
   }));
-  $('tableBox').querySelectorAll('button[data-split]').forEach((b) => (b.onclick = () => assignPhotos([b.dataset.split], '')));
+  $('tableBox').onclick = (e) => {
+    const open = e.target.closest('[data-split-open]'), pick = e.target.closest('[data-split]'),
+      cancel = e.target.closest('[data-split-cancel]');
+    if (open) {
+      const r = t.rows[+open.dataset.splitOpen];
+      open.parentNode.innerHTML = `<span class="muted">Tách ảnh nào ra khỏi dòng này?</span>
+        ${r.photos.map((p, k) => `<button class="mini" data-split="${esc(p.id)}" type="button">ảnh ${k + 1}</button>`).join('')}
+        <button class="mini" data-split-cancel="${open.dataset.splitOpen}" type="button">Thôi</button>`;
+    } else if (pick) {
+      assignPhotos([pick.dataset.split], '');
+    } else if (cancel) {
+      cancel.parentNode.innerHTML = `<button class="mini" data-split-open="${cancel.dataset.splitCancel}" type="button">tách</button>`;
+    }
+  };
   // kéo thả (máy tính): ô ảnh chưa có tên -> dòng của một em
   $('tableBox').querySelectorAll('.ucard[draggable]').forEach((c) => (c.ondragstart = (e) => {
     e.dataTransfer.setData('text/plain', c.dataset.ids);
@@ -1118,8 +1132,10 @@ function renderTable() {
 /** Tên để gán ảnh: danh sách lớp và tên đang có trong bảng, ghi rõ em nào đã có bài. */
 function assignOptions() {
   const names = [...new Set([...(S.info.roster || []), ...S.table.rows.map((r) => String(r.name || '').trim()).filter(Boolean)])];
-  const has = new Set(S.table.rows.filter((r) => (r.photos || []).length).map((r) => String(r.name || '').trim()));
-  return names.map((n) => `<option value="${esc(n)}">${esc(n)}${has.has(n) ? ' (đã có bài)' : ''}</option>`).join('');
+  const has = new Set(S.table.rows.filter((r) => (r.photos || []).length).map((r) => nameKey(r.name)));
+  const seen = new Set();
+  return names.filter((n) => !seen.has(nameKey(n)) && seen.add(nameKey(n)))
+    .map((n) => `<option value="${esc(n)}">${esc(n)}${has.has(nameKey(n)) ? ' (đã có bài)' : ''}</option>`).join('');
 }
 
 /**
@@ -1169,8 +1185,10 @@ function markEdited() {
 function rowHtml(r, i, cols) {
   const cls = r.status === 'missing' ? 'missing' : (r.flag ? 'review' : '');
   const named = String(r.name || '').trim();
-  const links = (r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}">ảnh ${k + 1}</a>` +
-    (named && p.id ? `<button class="mini" data-split="${esc(p.id)}" type="button" title="Ảnh này không phải bài của em: đưa về mục chưa có tên">tách</button>` : '')).join('');
+  const links = (r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}">ảnh ${k + 1}</a>`).join('');
+  // "tách" ở dòng riêng; bấm vào mới hỏi tách ảnh nào (kể cả khi chỉ có 1 ảnh) để bấm nhầm không bị tách luôn
+  const split = named && (r.photos || []).length ? `<div class="splitbox"><button class="mini" data-split-open="${i}" type="button"
+    title="Ảnh không phải bài của em: đưa về mục chưa có tên">tách</button></div>` : '';
   const cell = (c, ci) => {
     if (ci === 0 && r.status === 'missing') return absentSelect(r, i, c);
     if (c === 'CHÉP PHẠT') return penaltyCell(r, i, c);
@@ -1179,7 +1197,7 @@ function rowHtml(r, i, cols) {
   // data-label: tên cột, hiện phía trên ô khi bảng chuyển thành thẻ trên điện thoại
   return `<tr class="${cls}"${named ? ` data-drop="${esc(named)}"` : ''}>
     <td class="namecell" data-label="Học sinh"><input list="rosterList" value="${esc(r.name)}" data-r="${i}" data-c="__name" placeholder="Chọn tên">
-        <div class="links">${links}</div></td>
+        <div class="links">${links}</div>${split}</td>
     ${cols.map((c, ci) => `<td class="${c === 'TỪ VIẾT SAI' ? 'wrong' : (c === 'CHÉP PHẠT' ? 'pen half' : 'score half')}"
         data-label="${ci === 0 && r.status === 'missing' ? 'Không có ảnh bài' : esc(c)}">${cell(c, ci)}</td>`).join('')}
     <td class="notes" data-label="Ghi chú"><textarea rows="2" data-r="${i}" data-c="__notes">${esc(r.notes)}</textarea></td>
@@ -1245,12 +1263,19 @@ function onCellInput(e) {
  * Cô chọn tên cho một ảnh: bỏ dòng "không có ảnh" trống của cùng em đó để khỏi trùng tên.
  * Em đó đã có dòng chấm từ ảnh khác (ví dụ mặt kia của bài) thì gộp ảnh vào một dòng và chấm lại.
  */
+/** Tên so sánh không phân biệt hoa thường: "vinh" = "Vinh". */
+function nameKey(n) { return String(n || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+
 function onNameChange(e) {
-  const i = +e.target.dataset.r, name = e.target.value.trim(), row = S.table.rows[i];
+  const i = +e.target.dataset.r, row = S.table.rows[i];
+  let name = e.target.value.trim();
   if (!name) return;
-  const withPhotos = S.table.rows.some((r) => r !== row && String(r.name).trim() === name && (r.photos || []).length);
+  // gõ trùng tên trong danh sách lớp (khác hoa thường) thì dùng đúng tên trong danh sách
+  const known = (S.info.roster || []).find((n) => nameKey(n) === nameKey(name));
+  if (known && known !== name) { name = known; e.target.value = known; row.name = known; saveTableSoon(0); }
+  const withPhotos = S.table.rows.some((r) => r !== row && nameKey(r.name) === nameKey(name) && (r.photos || []).length);
   if (withPhotos && (row.photos || []).length) return mergeRowsByName();
-  const dup = S.table.rows.findIndex((r) => r !== row && String(r.name).trim() === name && r.status === 'missing' &&
+  const dup = S.table.rows.findIndex((r) => r !== row && nameKey(r.name) === nameKey(name) && r.status === 'missing' &&
     !Object.values(r.values || {}).some((v) => String(v).trim()));
   if (dup >= 0) { S.table.rows.splice(dup, 1); markEdited(); renderTable(); saveTableSoon(0); }
 }
@@ -1301,7 +1326,7 @@ async function exportSession() {
   const unnamed = t.rows.filter((r) => !String(r.name).trim() && r.status !== 'missing');
   if (unnamed.length) return toast('Còn ' + unnamed.length + ' dòng chưa có tên. Chọn tên hoặc xóa dòng đó.', true);
   const seen = {}, dups = [];
-  t.rows.forEach((r) => { const n = String(r.name).trim(); if (seen[n] && !dups.includes(n)) dups.push(n); seen[n] = true; });
+  t.rows.forEach((r) => { const n = nameKey(r.name); if (seen[n] && !dups.includes(r.name)) dups.push(r.name); seen[n] = true; });
   if (dups.length) return toast('Trùng tên: ' + dups.join(', ') + '. Xóa dòng thừa hoặc sửa tên trước khi xuất.', true);
   $('exportBtn').disabled = true; $('exportBtn').textContent = 'Đang xuất...';
   try {
