@@ -63,8 +63,9 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   Đổi tên phần (cột) sau khi chấm: `renamePart` / `renamePartIn_`, không chấm lại. `TỪ MỚI` là tên phần do cô chọn
   (không có trong enum Gemini `PART_NAMES`), mặc định chấm như từ vựng và được tính chép phạt.
 - Bài 2 mặt: `pairBackSides_` ghép ảnh không tên với ảnh ngay trước (theo tên file = thời điểm chụp `takenAt`) nếu
-  trùng ≤ 2 mục; dòng đó tô vàng. Ảnh chưa nhận ra tên gom theo tên ghi trên giấy (`paperGroup_`); cô chọn tên trùng
-  dòng đã có ảnh thì web lưu rồi `buildTable` để gộp (`mergeRowsByName`).
+  trùng ≤ 2 mục; dòng đó tô vàng. Ảnh chưa nhận ra tên: mỗi ảnh một dòng riêng (không gom), bảng web chia 3 phần
+  (chưa có tên / đã có bài / chưa có bài); cô gán ảnh cho em (`assignPhotos`, chọn tên hoặc kéo thả) hoặc tách ảnh khỏi dòng
+  (tên `UNASSIGNED`, không tự ghép lại); cô chọn tên trùng dòng đã có ảnh thì `buildTable` gộp (`mergeRowsByName`).
 - Test gọi Gemini thật (`gemini_live.js`, `tools/gemini_grade.py`) dùng `GEMINI_FREE_KEYS` trong `.env` trước, hết lượt mới
   sang `GEMINI_API_KEY` (`webapp/test/gemini_keys.js`).
 - Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.

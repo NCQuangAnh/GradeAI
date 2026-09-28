@@ -656,7 +656,8 @@ function saveKey(sessionId, key, restart) {
       s.table = null;
       // chấm lại từ đầu: bỏ các tên tạm cô đặt cho ảnh (không có trong danh sách lớp), giữ tên thật
       Object.keys(s.nameOverrides).forEach(function (id) {
-        if (roster.indexOf(s.nameOverrides[id]) < 0) delete s.nameOverrides[id];
+        var name = s.nameOverrides[id];
+        if (name !== UNASSIGNED && roster.indexOf(name) < 0) delete s.nameOverrides[id];
       });
     }
   });
@@ -715,6 +716,19 @@ function buildTable(sessionId) {
     s.tableUpdatedAt = Date.now();
   });
   return merged;
+}
+
+/**
+ * Gán ảnh cho một em (name) hoặc tách ảnh ra mục "chưa có tên" (name rỗng), rồi lập lại bảng: ảnh cùng tên
+ * được gộp thành một dòng và chấm lại dòng đó (không gọi Gemini).
+ */
+function assignPhotos(sessionId, fileIds, name) {
+  requireUser_();
+  name = String(name || '').trim();
+  updateState_(DriveApp.getFolderById(sessionId), function (s) {
+    (fileIds || []).forEach(function (id) { s.nameOverrides[id] = name || UNASSIGNED; });
+  });
+  return buildTable(sessionId);
 }
 
 /** Lưu bảng cô đang sửa (tự động khi gõ). ignoredIds: ảnh của các dòng cô đã xóa. */

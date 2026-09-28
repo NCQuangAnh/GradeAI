@@ -178,15 +178,32 @@ test('a two-sided paper (back side without a name) is one student, word-style pa
   const stray = t.rows.filter((r) => r.status === 'unmatched');
   assert.deepEqual(stray.map((r) => r.photos[0].id), ['bai_4']);  // overlaps Việt's paper: not a back side
 
-  // a name not in the roster: both sides still end up in one row, the teacher picks the name once
-  const t2 = plain(G.assembleSession(keyParts, ROSTER, [
+  // names not in the roster: every photo is its own row (two different pupils may both be unreadable),
+  // the teacher assigns each photo; photos given the same name become one row
+  const unnamed = [
     photo('bai_5', 'Duy', [w('1.1', 'admit + Ving'), w('1.2', 'deny + Ving')]),
     photo('bai_6', 'Duy', [w('1.3', 'advise O to V'), w('2.1', 'opinion', { correct: true })]),
     photo('bai_7', 'Zed', [w('1.1', 'admit + Ving')]),
-    photo('bai_8', '', [w('2.2', 'size', { correct: true })]),  // back side of Zed's paper
-  ], 'TA9', PENALTY));
-  const groups = t2.rows.filter((r) => r.status === 'unmatched').map((r) => r.photos.map((p) => p.id));
-  assert.deepEqual(groups, [['bai_5', 'bai_6'], ['bai_7', 'bai_8']]);
+    photo('bai_8', '', [w('2.2', 'size', { correct: true })])];
+  const t2 = plain(G.assembleSession(keyParts, ROSTER, unnamed, 'TA9', PENALTY));
+  assert.deepEqual(t2.rows.filter((r) => r.status === 'unmatched').map((r) => r.photos.map((p) => p.id)),
+    [['bai_5'], ['bai_6'], ['bai_7'], ['bai_8']]);
+  const byId = Object.fromEntries(unnamed.map((ph) => [ph.fileId, ph]));
+  const t3 = plain(G.assembleSession(keyParts, ROSTER,
+    G.resultsForTable(byId, { bai_5: 'Minh Khôi', bai_6: 'Minh Khôi', bai_1: 'Minh Khôi' }, []), 'TA9', PENALTY));
+  assert.deepEqual(t3.rows.find((r) => r.name === 'Minh Khôi').photos.map((p) => p.id).sort(), ['bai_5', 'bai_6']);
+});
+
+test('a photo the teacher took out of a row stays unassigned and is not paired again', () => {
+  const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [{ en: 'above', vi: 'trên' }, { en: 'below', vi: 'dưới' }] }]);
+  const ph = (id, name, en) => ({ fileId: id, fileName: id + '.jpg', url: '', writtenName: name, matchedName: name ? 'Tú Linh' : '',
+    keyMatches: true, unclear: [], items: [{ id: en === 'above' ? '1.1' : '1.2', written_en: en, written_vi: 'x', meaning_ok: true }] });
+  const results = { a: ph('a', 'Tú Linh', 'above'), b: ph('b', '', 'below') };
+  const paired = plain(G.assembleSession(keyParts, ROSTER, G.resultsForTable(results, {}, []), 'TA6', PENALTY));
+  assert.deepEqual(paired.rows.find((r) => r.name === 'Tú Linh').photos.map((p) => p.id), ['a', 'b']);  // back side paired
+  const split = plain(G.assembleSession(keyParts, ROSTER, G.resultsForTable(results, { b: G.UNASSIGNED }, []), 'TA6', PENALTY));
+  assert.deepEqual(split.rows.find((r) => r.name === 'Tú Linh').photos.map((p) => p.id), ['a']);
+  assert.deepEqual(split.rows.filter((r) => r.status === 'unmatched').map((r) => r.photos[0].id), ['b']);
 });
 
 test('grading more photos later keeps what the teacher already reviewed', () => {

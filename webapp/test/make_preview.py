@@ -45,8 +45,14 @@ def main(out: Path) -> None:
         rows.append({"name": st["name"], "values": values, "notes": "\n".join(st.get("notes", [])),
                      "photos": [{"id": pid, "name": f"{pid}.jpg", "url": "#"} for pid in ids],
                      "status": "graded", "flag": any("xem lại" in n for n in st.get("notes", [])), "ai": dict(values)})
-    rows.append({"name": "", "values": {"TỪ VỰNG": "0/13 từ", "TỪ VIẾT SAI": "", "CHÉP PHẠT": "từ mới x15 lần"},
-                 "notes": 'Chưa ghép được tên (giấy ghi "Chi") - cô chọn tên', "photos": [], "status": "unmatched", "flag": True})
+    # 2 ảnh chưa nhận ra tên (dùng lại ảnh bài đầu tiên cho bản xem thử)
+    first = SESSION / "photos" / f"{result['students'][0]['photos'][0]}.jpg"
+    for x, written in (("x1", "Chi"), ("x2", "?")):
+        im = Image.open(first); im.thumbnail((320, 320)); im.save(out / f"th_{x}.jpg", quality=75)
+        im = Image.open(first); im.thumbnail((1400, 1400)); im.save(out / f"full_{x}.jpg", quality=80)
+        rows.append({"name": "", "values": {"TỪ VỰNG": "11/13 từ", "TỪ VIẾT SAI": "Nephew, Niece", "CHÉP PHẠT": "từ viết sai x10 lần"},
+                     "notes": f'Chưa ghép được tên (giấy ghi "{written}") - cô chọn tên',
+                     "photos": [{"id": x, "name": f"{x}.jpg", "url": "#"}], "status": "unmatched", "flag": True})
 
     table = {"title": "TỪ VỰNG", "columns": ["TỪ VỰNG", "TỪ VIẾT SAI", "CHÉP PHẠT"], "rows": rows}
     roster = [st["name"] for st in result["students"]]
@@ -77,6 +83,19 @@ const MOCK = {{
   saveClassRoster: (id, names) => {{ MOCK_INFO.roster = names; return names; }},
   buildTable: () => MOCK_INFO.state.table,
   saveKey: (id, key) => ({{topic: key.topic, parts: key.parts}}),
+  assignPhotos: (sid, ids, name) => {{
+    const rows = MOCK_INFO.state.table.rows;
+    ids.forEach((id) => {{
+      const from = rows.find((r) => (r.photos || []).some((p) => p.id === id));
+      const photo = from.photos.find((p) => p.id === id);
+      from.photos = from.photos.filter((p) => p.id !== id);
+      if (!from.photos.length && !String(from.name || '').trim()) rows.splice(rows.indexOf(from), 1);
+      const to = name && rows.find((r) => r.name === name);
+      if (to) {{ to.photos.push(photo); to.status = 'graded'; to.flag = true; to.notes = 'Ảnh của em thay đổi nên AI chấm lại dòng này'; }}
+      else rows.push({{name, values: {{}}, notes: 'Chưa ghép được tên (giấy ghi "?") - cô chọn tên', photos: [photo], status: 'unmatched', flag: true}});
+    }});
+    return MOCK_INFO.state.table;
+  }},
   uploadImage: (id, b64, mime, kind, replaceKey, takenAt) => {{
     window.UPLOADS = (window.UPLOADS || []).concat([takenAt]);
     return {{id: 'up' + window.UPLOADS.length, name: 'bai_' + takenAt + '.jpg', url: '#'}};

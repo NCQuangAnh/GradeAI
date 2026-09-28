@@ -183,9 +183,12 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
    (ảnh đã chấm không mất). Nếu 2 bài đầu không khớp đáp án, web dừng lại hỏi.
 3. Duyệt **bảng chấm**: sửa điểm, từ sai, chép phạt, ghi chú ngay trên bảng.
    Dòng tô vàng = cần cô xem (chữ gạch xóa, tên chưa ghép được, mặt sau tự ghép, 2 ảnh cùng tên mà trùng nhiều mục, có ảnh mới); sửa một ô trong dòng thì hết tô vàng.
-   Dòng xám = không có ảnh bài. Ảnh chưa nhận ra tên: chọn tên ở ô đầu, dòng "không có ảnh" trống của em đó tự bỏ.
-   Chọn tên của em đã có dòng chấm (ví dụ mặt kia của bài) thì web tự gộp ảnh vào một dòng và chấm lại cả bài.
-   Các ảnh cùng ghi một tên lạ (không có trong danh sách lớp) được gộp sẵn thành một dòng, chỉ cần chọn tên một lần.
+   Bảng chia 3 phần:
+   - **Bài chưa có tên**: mỗi ảnh AI chưa nhận ra tên là một ô riêng. Bấm "Xem ảnh", rồi chọn tên ở ô "Gán cho học sinh"
+     (trên máy tính có thể kéo thả ô ảnh vào dòng của em). Gán cho em đã có bài thì các ảnh tự gộp và chấm lại cả bài.
+   - **Đã có bài**: mỗi em một dòng. Ảnh nào không phải bài của em thì bấm **tách** cạnh "ảnh 1/2..." để đưa về mục
+     "Bài chưa có tên".
+   - **Chưa có bài**: chọn Vắng, Không có bài hoặc để trống.
    Web không cho xuất khi còn dòng chưa có tên hoặc trùng tên.
    Sửa thẳng vào ô: điểm ("12/13 từ"), từ viết sai, ghi chú. Mọi chỉnh sửa tự lưu.
    **Chép phạt** chọn trong danh sách: Không phạt, từ viết sai x10 / x15 lần, từ mới x10 / x15 lần,

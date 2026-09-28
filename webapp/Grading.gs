@@ -353,29 +353,21 @@ function writtenIds_(ph) {
     .map(function (it) { return it.id; });
 }
 
-/** Ảnh chưa ghép được tên được gom theo tên ghi trên giấy ("Duy" và "Duy" là một em); giấy không tên thì ''. */
-function paperGroup_(ph) {
-  if (ph.paperGroup) return ph.paperGroup;
-  var w = stripAccents(ph.writtenName).toLowerCase().replace(/[^a-z0-9]/g, '');
-  return w ? 'giay:' + w : '';
-}
-
 /**
  * Mặt sau tờ bài thường không ghi tên: ảnh không có tên được ghép với ảnh chụp ngay trước nó
- * (tên file theo thứ tự chụp), nếu hai ảnh gần như không trùng mục nào (2 mặt của cùng một bài).
- * Ảnh trước chưa nhận ra tên thì mặt sau vào cùng nhóm với nó, cô chọn tên một lần cho cả hai.
+ * (tên file theo thứ tự chụp), nếu ảnh trước đã có tên và hai ảnh gần như không trùng mục nào (2 mặt của một bài).
+ * Ảnh cô đã tách ra ("chưa có tên") thì không ghép lại.
  */
 function pairBackSides_(photos) {
   var sorted = photos.slice().sort(function (a, b) { return String(a.fileName).localeCompare(String(b.fileName)); });
   sorted.forEach(function (ph, i) {
-    if (ph.matchedName || String(ph.writtenName || '').trim() || i === 0) return;
-    var prev = sorted[i - 1], prevGroup = prev.matchedName ? '' : paperGroup_(prev);
-    if (!prev.matchedName && !prevGroup) return;
+    if (ph.matchedName || ph.forceUnmatched || String(ph.writtenName || '').trim() || i === 0) return;
+    var prev = sorted[i - 1];
+    if (!prev.matchedName) return;
     var mine = writtenIds_(ph), theirs = writtenIds_(prev);
     var overlap = mine.filter(function (id) { return theirs.indexOf(id) >= 0; }).length;
     if (mine.length && overlap <= 2) {
-      if (prev.matchedName) ph.matchedName = prev.matchedName;
-      else ph.paperGroup = prevGroup;
+      ph.matchedName = prev.matchedName;
       ph.pairedWith = prev.fileName;
     }
   });
@@ -433,14 +425,11 @@ function assembleSession(keyParts, roster, photoResults, className, penaltyConfi
     copy.items = photoItems_(ph, keyParts);
     return copy;
   }));
-  var byName = {}, groups = {}, unmatched = [];
+  // ảnh chưa nhận ra tên: mỗi ảnh một dòng riêng (không gom), cô gán từng ảnh cho đúng em
+  var byName = {}, unmatched = [];
   photos.forEach(function (ph) {
-    if (ph.matchedName) { (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph); return; }
-    var g = paperGroup_(ph);
-    if (g && groups[g]) { groups[g].push(ph); return; }
-    var list = [ph];
-    if (g) groups[g] = list;
-    unmatched.push(list);
+    if (ph.matchedName) (byName[ph.matchedName] = byName[ph.matchedName] || []).push(ph);
+    else unmatched.push([ph]);
   });
 
   function gradeRow(name, photos) {
@@ -571,7 +560,7 @@ function renamePartIn_(key, table, oldName, newName) {
 function rematchNames_(state, roster) {
   var overrides = state.nameOverrides || {};
   Object.keys(overrides).forEach(function (id) {
-    if (roster.indexOf(overrides[id]) < 0) delete overrides[id];
+    if (overrides[id] !== UNASSIGNED && roster.indexOf(overrides[id]) < 0) delete overrides[id];
   });
   Object.keys(state.results || {}).forEach(function (id) {
     var r = state.results[id], written = String(r.writtenName || '').trim();
@@ -595,12 +584,16 @@ function overridesFromTable(table) {
 }
 
 /** Saved per-photo results -> list for assembleSession, with the teacher's name choices applied. */
+/** Tên cô chọn cho một ảnh khi tách ảnh ra khỏi dòng của một em: ảnh về mục "chưa có tên", AI không tự ghép lại. */
+var UNASSIGNED = '__chua_co_ten__';
+
 function resultsForTable(resultsById, overrides, ignored) {
   return Object.keys(resultsById || {}).filter(function (id) {
     return (ignored || []).indexOf(id) < 0;
   }).map(function (id) {
     var r = JSON.parse(JSON.stringify(resultsById[id]));
-    if (overrides && overrides[id]) r.matchedName = overrides[id];
+    if (overrides && overrides[id] === UNASSIGNED) { r.matchedName = ''; r.forceUnmatched = true; }
+    else if (overrides && overrides[id]) r.matchedName = overrides[id];
     return r;
   });
 }

@@ -146,6 +146,14 @@
   table.review .penSel { min-width: 170px; }
   table.review .penText { margin-top: 4px; }
   table.review .links a { font-size: 13px; font-weight: 600; margin-right: 10px; display: inline-block; padding: 4px 0; }
+  table.review .links .mini { margin-right: 8px; }
+  table.review tr.drop td { outline: 2px dashed var(--violet); background: var(--marker-soft); }
+  .unassigned { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 14px; }
+  .ucard { border: 1px dashed var(--pen); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--pen-soft); }
+  .ucard[draggable="true"] { cursor: grab; }
+  .ucard .muted { font-size: 13px; }
+  .ucard select { margin-top: 8px; }
+  .section-title { margin-top: 18px; }
   table.review td.notes textarea { min-width: 260px; color: var(--muted); }
   table.review td.namecell input { font-weight: 600; }
   .del { border: none; background: none; color: var(--muted); padding: 4px 8px; font-size: 13px; font-weight: 500; }
@@ -296,7 +304,7 @@ const VND_PER_USD = 26000;
 // ---------- helpers ----------
 // Thời gian chờ tối đa cho mỗi lệnh gửi máy chủ (google.script.run đôi khi không bao giờ trả lời).
 const SLOW_CALLS = { gradePhoto: 300000, readKey: 180000, buildTable: 180000, exportSession: 180000, deleteFile: 180000,
-                     saveClassRoster: 180000, uploadImage: 120000 };
+                     saveClassRoster: 180000, uploadImage: 120000, assignPhotos: 180000 };
 function run(fn, ...args) {
   return new Promise((resolve, reject) => {
     const ms = SLOW_CALLS[fn] || 90000;
@@ -1046,14 +1054,32 @@ async function gradePhotos(photos, checkMatch) {
 // ---------- review table ----------
 function renderTable() {
   const t = S.table, cols = t.columns;
+  // 3 phần: ảnh chưa có tên (mỗi ảnh một mục, gán cho em nào), em đã có bài, em chưa có bài
+  const unnamed = [], graded = [], absent = [];
+  t.rows.forEach((r, i) => {
+    const hasPhotos = (r.photos || []).length > 0;
+    if (hasPhotos && !String(r.name || '').trim()) unnamed.push(i);
+    else if (!hasPhotos && r.status === 'missing') absent.push(i);
+    else graded.push(i);
+  });
+  const head = `<thead><tr><th>Học sinh</th>${cols.map((c) =>
+    `<th class="${c === 'TỪ VIẾT SAI' ? '' : (c === 'CHÉP PHẠT' ? 'pen' : 'score')}">${esc(c)}</th>`).join('')}<th>Ghi chú</th><th class="delcell"></th></tr></thead>`;
   $('tableBox').innerHTML = `
     <h2>Bảng chấm - cô duyệt và sửa trực tiếp <span id="saveState" class="muted"></span></h2>
-    <p class="muted">Sửa thẳng vào ô, tự lưu. Dòng <b>tô vàng</b> nên xem lại, dòng <b>xám</b> là em không có bài (chọn Vắng hoặc Không có bài).
+    <p class="muted">Sửa thẳng vào ô, tự lưu. Dòng <b>tô vàng</b> nên xem lại.
       Chép phạt là đề xuất theo luật chung. Chốt xong bấm nút xuất ở đáy màn hình; xuất rồi vẫn sửa và xuất lại được.</p>
-    <div class="tablewrap"><table class="review"><thead><tr><th>Học sinh</th>${cols.map((c) =>
-      `<th class="${c === 'TỪ VIẾT SAI' ? '' : (c === 'CHÉP PHẠT' ? 'pen' : 'score')}">${esc(c)}</th>`).join('')}<th>Ghi chú</th><th class="delcell"></th></tr></thead>
-    <tbody>${t.rows.map((r, i) => rowHtml(r, i, cols)).join('')}</tbody></table></div>
-    <p class="row" style="margin-top:10px"><button id="addRow" type="button">+ Thêm dòng</button></p>`;
+    ${unnamed.length ? `<h2 class="section-title">Bài chưa có tên (${unnamed.length})</h2>
+      <p class="muted">AI chưa nhận ra tên. Xem ảnh rồi chọn tên em đó, kể cả em đã có bài (bài nhiều trang sẽ tự gộp và chấm lại).
+        Trên máy tính có thể kéo thả ô ảnh vào dòng của em.</p>
+      <div class="unassigned">${unnamed.map((i) => unnamedCard(t.rows[i], i, cols)).join('')}</div>` : ''}
+    <h2 class="section-title">Đã có bài (${graded.length})</h2>
+    <div class="tablewrap"><table class="review">${head}
+      <tbody>${graded.map((i) => rowHtml(t.rows[i], i, cols)).join('')}</tbody></table></div>
+    <p class="row" style="margin-top:10px"><button id="addRow" type="button">+ Thêm dòng</button></p>
+    ${absent.length ? `<h2 class="section-title">Chưa có bài (${absent.length})</h2>
+      <p class="muted">Chọn Vắng hoặc Không có bài, hoặc để trống. Có ảnh bài của em thì gán ở mục "Bài chưa có tên".</p>
+      <div class="tablewrap"><table class="review">${head}
+        <tbody>${absent.map((i) => rowHtml(t.rows[i], i, cols)).join('')}</tbody></table></div>` : ''}`;
   renderExportBox();
   $('tableBox').querySelectorAll('textarea').forEach(autoGrow);
   $('tableBox').querySelectorAll('[data-r]').forEach((el) => (el.oninput = onCellInput));
@@ -1067,9 +1093,57 @@ function renderTable() {
     (row.photos || []).forEach((p) => p.id && S.ignoredAdd.push(p.id));  // xóa dòng có ảnh: không chấm lại ảnh đó
     t.rows.splice(+b.dataset.del, 1); markEdited(); renderTable(); saveTableSoon(0);
   }));
+  $('tableBox').querySelectorAll('select[data-assign]').forEach((el) => (el.onchange = () => {
+    if (el.value) assignPhotos(el.dataset.assign.split(','), el.value);
+  }));
+  $('tableBox').querySelectorAll('button[data-split]').forEach((b) => (b.onclick = () => assignPhotos([b.dataset.split], '')));
+  // kéo thả (máy tính): ô ảnh chưa có tên -> dòng của một em
+  $('tableBox').querySelectorAll('.ucard[draggable]').forEach((c) => (c.ondragstart = (e) => {
+    e.dataTransfer.setData('text/plain', c.dataset.ids);
+  }));
+  $('tableBox').querySelectorAll('tr[data-drop]').forEach((tr) => {
+    tr.ondragover = (e) => { e.preventDefault(); tr.classList.add('drop'); };
+    tr.ondragleave = () => tr.classList.remove('drop');
+    tr.ondrop = (e) => {
+      e.preventDefault(); tr.classList.remove('drop');
+      const ids = e.dataTransfer.getData('text/plain');
+      if (ids) assignPhotos(ids.split(','), tr.dataset.drop);
+    };
+  });
   $('addRow').onclick = () => {
     t.rows.push({ name: '', values: {}, notes: '', photos: [], status: 'added' }); markEdited(); renderTable(); saveTableSoon(0);
   };
+}
+
+/** Tên để gán ảnh: danh sách lớp và tên đang có trong bảng, ghi rõ em nào đã có bài. */
+function assignOptions() {
+  const names = [...new Set([...(S.info.roster || []), ...S.table.rows.map((r) => String(r.name || '').trim()).filter(Boolean)])];
+  const has = new Set(S.table.rows.filter((r) => (r.photos || []).length).map((r) => String(r.name || '').trim()));
+  return names.map((n) => `<option value="${esc(n)}">${esc(n)}${has.has(n) ? ' (đã có bài)' : ''}</option>`).join('');
+}
+
+/** Một ảnh chưa có tên: xem ảnh, AI đọc được gì, chọn tên (hoặc kéo vào dòng của em). */
+function unnamedCard(r, i, cols) {
+  const ids = (r.photos || []).map((p) => p.id).filter(Boolean);
+  const written = ((String(r.notes || '').match(/giấy ghi "([^"]*)"/) || [])[1] || '').trim();
+  const score = cols.filter((c) => c !== 'CHÉP PHẠT').map((c) => (r.values || {})[c]).filter(Boolean).join(' - ');
+  return `<div class="ucard" draggable="true" data-ids="${esc(ids.join(','))}">
+    ${(r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}"><b>Xem ảnh${r.photos.length > 1 ? ' ' + (k + 1) : ''}</b></a>`).join(' ')}
+    <div class="muted">Tên trên giấy: ${written && written !== '?' ? esc(written) : 'không có'}${score ? '<br>AI chấm: ' + esc(score) : ''}</div>
+    <select data-assign="${esc(ids.join(','))}" aria-label="Gán ảnh cho học sinh"><option value="">Gán cho học sinh...</option>${assignOptions()}</select>
+    <div class="row" style="margin-top:6px"><button class="del" data-del="${i}" type="button">Bỏ ảnh này (không chấm)</button></div>
+  </div>`;
+}
+
+/** Gán ảnh cho một em, hoặc tách ảnh ra mục "Bài chưa có tên" (name rỗng); máy chủ lập lại bảng. */
+async function assignPhotos(ids, name) {
+  saveTableSoon(0);
+  await flushSave();
+  try { await run('assignPhotos', S.sesId, ids, name); }
+  catch (e) { toast('Chưa gán được: ' + errMsg(e), true); return renderTable(); }
+  await renderGradeTop();
+  if (S.table) renderTable();
+  toast(name ? `Đã gán ảnh cho ${name}` : 'Đã tách ảnh ra mục "Bài chưa có tên"');
 }
 
 /** Nút xuất: lần đầu "Chốt và xuất", đã xuất thì "Xuất lại" kèm cảnh báo khi bảng đã sửa sau lần xuất. */
@@ -1091,14 +1165,16 @@ function markEdited() {
 
 function rowHtml(r, i, cols) {
   const cls = r.status === 'missing' ? 'missing' : (r.flag ? 'review' : '');
-  const links = (r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}">ảnh ${k + 1}</a>`).join('');
+  const named = String(r.name || '').trim();
+  const links = (r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}">ảnh ${k + 1}</a>` +
+    (named && p.id ? `<button class="mini" data-split="${esc(p.id)}" type="button" title="Ảnh này không phải bài của em: đưa về mục chưa có tên">tách</button>` : '')).join('');
   const cell = (c, ci) => {
     if (ci === 0 && r.status === 'missing') return absentSelect(r, i, c);
     if (c === 'CHÉP PHẠT') return penaltyCell(r, i, c);
     return `<textarea rows="1" data-r="${i}" data-c="${esc(c)}">${esc((r.values || {})[c])}</textarea>`;
   };
   // data-label: tên cột, hiện phía trên ô khi bảng chuyển thành thẻ trên điện thoại
-  return `<tr class="${cls}">
+  return `<tr class="${cls}"${named ? ` data-drop="${esc(named)}"` : ''}>
     <td class="namecell" data-label="Học sinh"><input list="rosterList" value="${esc(r.name)}" data-r="${i}" data-c="__name" placeholder="Chọn tên">
         <div class="links">${links}</div></td>
     ${cols.map((c, ci) => `<td class="${c === 'TỪ VIẾT SAI' ? 'wrong' : (c === 'CHÉP PHẠT' ? 'pen half' : 'score half')}"
