@@ -14,8 +14,9 @@ var CONFIG = {
   // thỉnh thoảng một lượt ~290 giây, nên key miễn phí vẫn dùng 3.1
   MODEL_FREE: 'gemini-3.1-flash-lite',
   MODEL_PAID: 'gemini-3.1-flash-lite',  // key trả phí giữ mô hình đã biết giá (PRICE_USD_PER_M)
-  // chỉ để hỏi lại những nghĩa bị chê (ít chữ, không có ảnh); mô hình đầu hay quá tải (503) nên có mô hình dự phòng
-  MEANING_MODELS: ['gemini-3.8-flash', 'gemini-3.5-flash'],
+  // hỏi lại những nghĩa bị chê (ít chữ, không có ảnh). 3.1-flash-lite trả lời đúng 11/11 câu thử, 3 lần như nhau, và
+  // gọi được khi chấm chính gọi được; 3.8-flash cũng đúng nhưng hay quá tải (503) nên để dự phòng
+  MEANING_MODELS: ['gemini-3.1-flash-lite', 'gemini-3.8-flash'],
   PRICE_USD_PER_M: {input: 0.25, output: 1.50},  // giá Gemini 3.1 Flash-Lite, xem ngày 27/09/2026
   SHEET_PREFIX: 'Chấm bài',
   IMAGE_NAME: 'cham_bai.png',
@@ -575,6 +576,8 @@ function callGeminiQuiet_(body, models) {
         res = null;  // mạng lỗi hoặc quá lâu: thử lần sau
       }
       if (res && res.getResponseCode() === 200) {
+        var key = keys[(m + i) % keys.length];
+        if (models[m] === CONFIG.MODEL_FREE) countUse_(keyId_(key.key), today);  // cùng hạn mức với việc chấm
         try { return parseGeminiResponse(JSON.parse(res.getContentText())); } catch (e) { return null; }
       }
       Utilities.sleep(1000);
