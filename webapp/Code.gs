@@ -14,9 +14,9 @@ var CONFIG = {
   // thỉnh thoảng một lượt ~290 giây, nên key miễn phí vẫn dùng 3.1
   MODEL_FREE: 'gemini-3.1-flash-lite',
   MODEL_PAID: 'gemini-3.1-flash-lite',  // key trả phí giữ mô hình đã biết giá (PRICE_USD_PER_M)
-  // hỏi lại những nghĩa bị chê (ít chữ, không có ảnh). 3.1-flash-lite trả lời đúng 11/11 câu thử, 3 lần như nhau, và
-  // gọi được khi chấm chính gọi được; 3.8-flash cũng đúng nhưng hay quá tải (503) nên để dự phòng
-  MEANING_MODELS: ['gemini-3.1-flash-lite', 'gemini-3.8-flash'],
+  // hỏi lại những nghĩa bị chê (ít chữ, không có ảnh): 3.1-flash-lite trả lời đúng 11/11 câu thử, 3 lần như nhau.
+  // Cả web chỉ dùng một mô hình (chốt với cô 28/09/2026).
+  MEANING_MODELS: ['gemini-3.1-flash-lite'],
   PRICE_USD_PER_M: {input: 0.25, output: 1.50},  // giá Gemini 3.1 Flash-Lite, xem ngày 27/09/2026
   SHEET_PREFIX: 'Chấm bài',
   IMAGE_NAME: 'cham_bai.png',
@@ -580,7 +580,7 @@ function tryKeys_(keys, body, today) {
 }
 
 /**
- * Gọi phụ (hỏi lại nghĩa): chỉ dùng key miễn phí đang dùng được; mỗi mô hình thử 2 key, nghỉ 1 giây giữa các lần.
+ * Gọi phụ (hỏi lại nghĩa): chỉ dùng key miễn phí đang dùng được, thử lần lượt từng key, nghỉ 1 giây giữa các lần.
  * Không được thì trả null (giữ kết quả đọc ảnh). Không ghi trạng thái hết lượt vào KEY_STATE vì các mô hình này
  * có hạn mức riêng, không ảnh hưởng việc chấm chính.
  */
@@ -589,7 +589,7 @@ function callGeminiQuiet_(body, models) {
   var keys = geminiKeys_().filter(function (k) { return !k.paid && !keyResting_(state[keyId_(k.key)], today, Date.now()); });
   for (var m = 0; m < models.length; m++) {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[m] + ':generateContent';
-    for (var i = 0; i < Math.min(2, keys.length); i++) {
+    for (var i = 0; i < keys.length; i++) {
       var res = null;
       try {
         res = UrlFetchApp.fetch(url, {

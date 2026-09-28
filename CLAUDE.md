@@ -44,7 +44,9 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   (trả phí). Trạng thái hết lượt và số lượt dùng trong ngày (`countUse_`) lưu ở `KEY_STATE`, reset theo ngày giờ
   Thái Bình Dương. Phân loại lỗi: `classifyGeminiError`. Hạn mức miễn phí tính theo dự án (tài khoản), không theo key.
   `callGemini_(body, allowPaid)`: key miễn phí trước (`tryKeys_`, lỗi tạm thời 503/mạng thì đợi 3 s, 8 s rồi thử lại);
-  mọi key miễn phí lỗi thì báo `FREE_KEYS_FAILED` kèm lý do từng key, web hỏi cô rồi gọi lại với allowPaid = true.
+  mọi key miễn phí lỗi thì báo `FREE_KEYS_FAILED` kèm lý do từng key; web hỏi cô (`askFreeKeysFailed`): thử lại key miễn
+  phí (lỗi nữa thì hỏi lại), dùng key trả phí cho lần chấm đó (allowPaid = true, vẫn thử key miễn phí trước), hoặc dừng.
+  Chốt 28/09/2026: mọi lượt gọi (đọc đáp án, chấm, hỏi lại nghĩa; key miễn phí và trả phí) đều dùng gemini-3.1-flash-lite.
 - Kết quả mỗi buổi lưu ở `ket_qua_cham.json` trong folder buổi (đáp án đã xác nhận, kết quả từng ảnh, tên cô chọn,
   ảnh bị xóa, bảng đang duyệt). Chấm thêm ảnh chỉ chấm ảnh mới; `mergeTables` giữ các dòng cô đã sửa.
 - Đáp án: mỗi phần có `kind` (`word` = "cụm : nghĩa", code chấm chính tả bằng `decideVocab`, hiểu `Ving`/`V-ing`/`doing`,
@@ -54,7 +56,7 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   phải đủ ("buộc" thay "buộc tội" là sai), chữ viết tắt (lm, lmj, j, ko, đc, xl...) liệt kê trong GRADE_PROMPT.
   Đọc lại đáp án ra đúng các mục đã xác nhận thì giữ đáp án cũ (`reuseKeyLayout_`); trình sửa đáp án có nút Tách phần.
   Sau khi đọc ảnh: dòng bị ghép nhầm mục (theo nghĩa) được chuyển về mục đúng chữ (`realignLines_`, tô vàng); nghĩa bị
-  chê mà em có viết thì hỏi lại bằng câu chỉ có chữ với `CONFIG.MEANING_MODELS` (3.1-flash-lite trước, 3.8-flash dự phòng; `meaningChecks`, `callGeminiQuiet_`,
+  chê mà em có viết thì hỏi lại bằng câu chỉ có chữ với `CONFIG.MEANING_MODELS` (`gemini-3.1-flash-lite`; `meaningChecks`, `callGeminiQuiet_`,
   chỉ key miễn phí, lỗi thì giữ kết quả cũ). Mô hình flash đọc ảnh tốt hơn nhưng ~48 giây/ảnh nên không dùng để chấm chính.
   Mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.

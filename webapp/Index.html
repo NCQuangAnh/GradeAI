@@ -833,11 +833,15 @@ async function readKey() {
   $('keyBox').innerHTML = '<p>Đang đọc đáp án...</p>'; $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
   S.cost = 0; S.freeCalls = 0;
   try {
-    try { S.key = await run('readKey', S.sesId, false); }
-    catch (e) {
-      const raw = String((e && e.message) || e);  // errMsg() làm đẹp câu báo lỗi, ở đây cần bản gốc
-      if (!raw.includes(FREE_KEYS_FAILED) || !(await askPaidKey(raw))) throw e;
-      S.key = await run('readKey', S.sesId, true);
+    for (let allowPaid = false; ;) {
+      try { S.key = await run('readKey', S.sesId, allowPaid); break; }
+      catch (e) {
+        const raw = String((e && e.message) || e);  // errMsg() làm đẹp câu báo lỗi, ở đây cần bản gốc
+        if (!raw.includes(FREE_KEYS_FAILED)) throw e;
+        const choice = await askFreeKeysFailed(raw);
+        if (choice === 'stop') throw e;
+        if (choice === 'paid') allowPaid = true;
+      }
     }
     track(S.key);
   } catch (e) { $('keyBox').innerHTML = ''; return toast(errMsg(e), true); }
@@ -938,15 +942,27 @@ function askChoice(message, yes, no) {
 }
 
 /**
- * Mọi key miễn phí đều không dùng được: hỏi cô có dùng key trả phí không, kèm lý do từng key.
- * Đồng ý thì chỉ áp dụng cho lần chấm / đọc đáp án đang chạy.
+ * Mọi key miễn phí đều không dùng được: hỏi cô, kèm lý do từng key. Trả về
+ *  'retry' - thử lại các key miễn phí còn hạn mức (lỗi nữa thì hỏi lại y hệt)
+ *  'paid'  - dùng key trả phí cho phần còn lại của lần chấm này (vẫn thử key miễn phí trước từng ảnh)
+ *  'stop'  - dừng, lát nữa bấm "Chấm ảnh mới"
  */
 const FREE_KEYS_FAILED = 'KEY_MIEN_PHI_KHONG_DUNG_DUOC: ';
-function askPaidKey(msg) {
+function askFreeKeysFailed(msg) {
   const reasons = msg.slice(msg.indexOf(FREE_KEYS_FAILED) + FREE_KEYS_FAILED.length).split('; ');
-  return askChoice(`Các key miễn phí đều không dùng được lúc này:<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
-    Dùng <b>key trả phí</b> để chấm tiếp (khoảng 40đ một bài)? Hoặc dừng lại, lát nữa bấm "Chấm ảnh mới" để thử key miễn phí.`,
-    'Dùng key trả phí', 'Dừng, thử lại sau');
+  return new Promise((resolve) => {
+    $('alertBox').innerHTML = `<div class="alert bad">Các key miễn phí đều không dùng được lúc này:
+      <ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
+      Lỗi "quá tải (503)" thường hết sau vài phút; "hết hạn mức hôm nay" thì mở lại khoảng 14-15h.
+      <div class="row">
+        <button type="button" class="primary" data-v="retry">Thử lại key miễn phí</button>
+        <button type="button" data-v="paid">Dùng key trả phí (khoảng 40đ một bài)</button>
+        <button type="button" data-v="stop">Dừng</button></div></div>`;
+    $('alertBox').querySelectorAll('button[data-v]').forEach((b) => (b.onclick = () => {
+      $('alertBox').innerHTML = ''; resolve(b.dataset.v);
+    }));
+    $('alertBox').scrollIntoView({ block: 'center' });
+  });
 }
 
 /** Chấm lại mọi ảnh bằng đáp án đang dùng (không đọc lại đáp án). */
@@ -998,7 +1014,9 @@ async function gradePhotos(photos, checkMatch) {
     } catch (e) {
       const msg = errMsg(e), raw = String((e && e.message) || e);
       if (raw.includes(FREE_KEYS_FAILED)) {  // key miễn phí đều lỗi: hỏi cô trước khi dùng key trả phí
-        if (await askPaidKey(raw)) { allowPaid = true; i--; continue; }  // chấm lại ảnh này bằng key trả phí
+        const choice = await askFreeKeysFailed(raw);
+        if (choice === 'paid') allowPaid = true;
+        if (choice !== 'stop') { i--; continue; }  // chấm lại ảnh này (thử lại key miễn phí, hoặc cho phép key trả phí)
         failed += photos.length - i; break;
       }
       if (msg.includes('Không còn key nào')) {  // every key is out: stop instead of failing each photo

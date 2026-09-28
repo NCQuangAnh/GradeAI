@@ -53,7 +53,9 @@ Trên tab **Chấm bài**, web hiện số key miễn phí còn dùng được, 
 trong ngày** (mỗi ảnh bài 1 lượt, mỗi lần đọc đáp án 1 lượt; ngày tính từ 14-15h giờ Việt Nam).
 Chi phí hiển thị chỉ tính các lượt dùng key trả phí.
 Khi cả 6 key miễn phí đều không dùng được (Google quá tải 503, hết lượt...), web đợi rồi thử lại; vẫn không được thì
-**hỏi cô có dùng key trả phí không**, kèm lý do của từng key. Không đồng ý thì dừng, lát sau bấm "Chấm ảnh mới".
+hiện lý do của từng key và hỏi cô: **Thử lại key miễn phí** (lỗi nữa thì hỏi lại), **Dùng key trả phí** (cho lần chấm
+đó, vẫn thử key miễn phí trước từng ảnh) hoặc **Dừng** (lát sau bấm "Chấm ảnh mới").
+Mọi bước (đọc đáp án, chấm, hỏi lại nghĩa) đều dùng mô hình gemini-3.1-flash-lite.
 Hạn mức miễn phí tính theo từng tài khoản Gmail (dự án), không theo key; con số chính xác xem ở
 https://aistudio.google.com/rate-limit khi đăng nhập tài khoản tạo key (thường vài trăm tới khoảng 1.000 lượt/ngày
 cho Flash-Lite).
