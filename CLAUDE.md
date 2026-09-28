@@ -89,4 +89,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Môi trường riêng: `.venv` (google-genai, openpyxl, Pillow). Key trong `.env` (`GEMINI_FREE_KEYS`, `GEMINI_API_KEY`), không commit.
 - `.venv/Scripts/python tools/gemini_grade.py TA6 22/9 IMG_7458 [--model ...]`: chấm 1 ảnh, so với
   `result.json` đã duyệt, in số token và chi phí.
-- `gemini-2.5-flash-lite` trả 404 cho tài khoản mới (27/09/2026); mặc định dùng `gemini-3.1-flash-lite`.
+- `gemini-2.5-flash-lite` trả 404 cho tài khoản mới (27/09/2026). Web dùng `gemini-3.1-flash-lite` cho cả key miễn phí
+  (`CONFIG.MODEL_FREE`) và trả phí (`CONFIG.MODEL_PAID`, đã biết giá). Đã thử `gemini-3.5-flash-lite` trên 18 bài TA6 23/9:
+  đọc nhầm 5 bài (3.1: 1 bài), kết quả mỗi lần chạy khác nhau, có lượt ~290 giây, nên chưa dùng. Lỗi mạng/quá lâu thì sang key khác.
+- Chính tả: thiếu/thừa "s" số nhiều cuối từ không tính lỗi (`singular_`); nghĩa khớp đáp án sau khi bỏ dấu, đổi chữ
+  viết tắt (ae, ace, ce, lmj...) và coi "anh/chị/em" là nhóm chọn được thì công nhận ngay (`viMatches_`).

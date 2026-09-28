@@ -3,12 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 
-module.exports = function makeGemini(G, model) {
+// options.freeOnly: không dùng key trả phí (thử nghiệm mô hình mới).
+module.exports = function makeGemini(G, model, options) {
   const env = fs.readFileSync(path.join(__dirname, '..', '..', '.env'), 'utf8');
   const get = (name) => ((env.match(new RegExp('^' + name + '=(.+)$', 'm')) || [])[1] || '').trim();
   const keys = get('GEMINI_FREE_KEYS').split(',').map((k) => k.trim()).filter(Boolean)
     .map((key, i) => ({ key, label: 'miễn phí #' + (i + 1), paid: false }));
-  if (get('GEMINI_API_KEY')) keys.push({ key: get('GEMINI_API_KEY'), label: 'trả phí', paid: true });
+  if (get('GEMINI_API_KEY') && !(options && options.freeOnly)) keys.push({ key: get('GEMINI_API_KEY'), label: 'trả phí', paid: true });
   let current = 0;
 
   return async function gemini(body) {

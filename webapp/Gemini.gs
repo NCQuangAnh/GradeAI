@@ -57,7 +57,9 @@ var GRADE_PROMPT = [
   '  anh/em rể, anh/em chồng, anh/em vợ; sister-in-law: chị/em dâu, chị/em chồng, chị/em vợ). Sai là khi nghĩa',
   '  thuộc từ khác (sister-in-law : con dâu), thiếu phần chính hoặc hiểu sai từ.',
   '  Chữ viết tắt quen dùng hiểu như chữ đầy đủ: lm = làm; lmj, lmg, lj = làm gì; j = gì; ko, k, hk = không;',
-  '  đc = được; ng = người; vs = với; xl = xin lỗi; cx = cũng; mn = mọi người; ntn = như thế nào; vd = ví dụ.',
+  '  đc = được; ng = người; vs = với; xl = xin lỗi; cx = cũng; mn = mọi người; ntn = như thế nào; vd = ví dụ;',
+  '  ae = anh em; ace = anh chị em; ce = chị em. Đáp án ghi "anh/chị/em" thì em viết "anh em", "chị em", "ae",',
+  '  "anhem", "ce" đều đúng (vẫn phải có phần còn lại như "sinh đôi", "ruột").',
   '  KHÔNG chấm chính tả tiếng Anh - chương trình tự làm. other_word = true chỉ khi em thay hẳn bằng một từ',
   '  tiếng Anh có thật mang nghĩa khác, do hiểu sai từ (ví dụ "site" thay "side" trong outside/inside/beside).',
   '  Viết sai chữ cái mà không thành từ có thật ("Besind", "Behinh"), hoặc viết nhầm một chữ do nét chữ',
@@ -242,8 +244,9 @@ function normalizeGrade(data, keyParts, roster) {
                   meaning_ok: !!it.meaning_ok, other_word: !!it.other_word, correct: !!it.correct, note: it.note || ''});
     });
   });
-  var unclear = (data.unclear || []).slice();
-  realignLines_(items, prepareKey(keyParts), unclear);
+  var unclear = (data.unclear || []).slice(), prepared = prepareKey(keyParts);
+  realignLines_(items, prepared, unclear);
+  acceptKnownMeanings_(items, prepared);
   var written = String(data.written_name || '').trim();
   var matched = matchName(written, roster);
   // tên AI đoán chỉ nhận khi giấy có tên và có chung ít nhất một chữ (tránh "T.Vy" thành "Minh Khôi")
@@ -267,24 +270,25 @@ function normalizeGrade(data, keyParts, roster) {
  * thì khác xa, được chuyển về đúng mục. Nghĩa của nó phải chấm lại (meaning_ok = false, để hỏi lại ở meaningChecks).
  */
 function realignLines_(items, keyParts, unclear) {
-  var keyById = {}, byId = {};
+  var keyById = {}, fields = ['written_en', 'written_vi', 'meaning_ok', 'other_word', 'correct', 'note'];
   keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
-  items.forEach(function (it) { byId[it.id] = it; });
+  var fits = function (text, id) { return letterErrors(text, keyById[id].en); };
   items.forEach(function (it) {
-    if (!it.written_en) return;
-    var here = letterErrors(it.written_en, keyById[it.id].en);
-    if (here < 3) return;
+    if (!it.written_en || fits(it.written_en, it.id) < 3) return;
+    // mục đích: đang trống, hoặc đang chứa đúng dòng của mục này (hai dòng bị tráo chỗ cho nhau)
     var best = null, bestErr = 2;
     items.forEach(function (o) {
-      if (o === it || o.written_en) return;
-      var e = letterErrors(it.written_en, keyById[o.id].en);
+      if (o === it || (o.written_en && fits(o.written_en, it.id) > 1)) return;
+      var e = fits(it.written_en, o.id);
       if (e < bestErr) { bestErr = e; best = o; }
     });
     if (!best) return;
-    ['written_en', 'written_vi', 'other_word', 'correct', 'note'].forEach(function (f) { best[f] = it[f]; });
-    best.meaning_ok = false;
+    var mine = {}, theirs = {};
+    fields.forEach(function (f) { mine[f] = it[f]; theirs[f] = best[f]; });
+    fields.forEach(function (f) { best[f] = mine[f]; it[f] = theirs[f]; });
+    best.meaning_ok = false;  // nghĩa chấm theo mục cũ, phải chấm lại theo mục mới
     best.moved = true;
-    it.written_en = ''; it.written_vi = ''; it.meaning_ok = false; it.correct = false; it.other_word = false; it.note = '';
+    if (it.written_en) { it.meaning_ok = false; it.moved = true; }
     unclear.push('dòng "' + best.written_en + '" AI ghép vào mục ' + keyById[it.id].en + ', đã chuyển về mục ' +
                  keyById[best.id].en);
   });
@@ -296,7 +300,8 @@ var MEANING_PROMPT = [
   'ok = false nếu nghĩa thuộc từ khác hoặc hiểu sai, hoặc thiếu một chữ làm đổi nghĩa: từ ghép phải đủ,',
   '"buộc tội" (accuse) khác "buộc" (ép, trói); "chỉ trích" khác "chỉ". Xét chữ dịch chính trước, rồi mới bỏ qua phần phụ.',
   'Phần phụ như "làm gì", "ai", "vì" được bỏ hoặc viết tắt. Viết tắt: lm = làm; lmj, lmg = làm gì; j = gì; ko = không;',
-  'đc = được; xl = xin lỗi; ng = người; vs = với.'
+  'đc = được; xl = xin lỗi; ng = người; vs = với; ae = anh em; ace = anh chị em; ce = chị em.',
+  'Mẫu ghi "anh/chị/em" thì "anh em", "chị em", "ae", "ce" đều đúng (vẫn phải có phần còn lại như "sinh đôi").'
 ].join('\n');
 
 /**

@@ -10,7 +10,10 @@
 var CONFIG = {
   ROOT_FOLDER_ID: '1x-tIEoZAp5RdGpA_MCenUJ1iZXUxwGbB',       // folder gốc chứa các folder lớp (chế độ Bị hạn chế)
   OLD_SHEET_ID: '1ecvzosXzZonldGXlsd1TI_Ux1TnbpF_7ZV6lvkqPgNk',  // "Lưu chấm bài tại đây" - chỉ để lấy danh sách lớp lần đầu
-  MODEL: 'gemini-3.1-flash-lite',
+  // gemini-3.5-flash-lite đã thử 28/09/2026: đọc chữ kém và thất thường hơn 3.1 (18 bài TA6: 5 bài đọc nhầm so với 1),
+  // thỉnh thoảng một lượt ~290 giây, nên key miễn phí vẫn dùng 3.1
+  MODEL_FREE: 'gemini-3.1-flash-lite',
+  MODEL_PAID: 'gemini-3.1-flash-lite',  // key trả phí giữ mô hình đã biết giá (PRICE_USD_PER_M)
   // chỉ để hỏi lại những nghĩa bị chê (ít chữ, không có ảnh); mô hình đầu hay quá tải (503) nên có mô hình dự phòng
   MEANING_MODELS: ['gemini-3.8-flash', 'gemini-3.5-flash'],
   PRICE_USD_PER_M: {input: 0.25, output: 1.50},  // giá Gemini 3.1 Flash-Lite, xem ngày 27/09/2026
@@ -490,15 +493,22 @@ function keyResting_(st, today, now) {
 }
 
 function callGemini_(body) {
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + CONFIG.MODEL + ':generateContent';
   var keys = geminiKeys_(), state = loadKeyState_(), today = pacificDay_(), problems = [];
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i], id = keyId_(k.key);
     if (keyResting_(state[id], today, Date.now())) continue;
-    var res = UrlFetchApp.fetch(url, {
-      method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
-      headers: {'x-goog-api-key': k.key}, muteHttpExceptions: true
-    });
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+      (k.paid ? CONFIG.MODEL_PAID : CONFIG.MODEL_FREE) + ':generateContent';
+    var res;
+    try {
+      res = UrlFetchApp.fetch(url, {
+        method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
+        headers: {'x-goog-api-key': k.key}, muteHttpExceptions: true
+      });
+    } catch (e) {  // mạng lỗi hoặc Gemini trả lời quá lâu: thử key tiếp, không đánh dấu key này hết lượt
+      problems.push('key ' + k.label + ': ' + e.message);
+      continue;
+    }
     var code = res.getResponseCode(), json;
     try { json = JSON.parse(res.getContentText()); } catch (e) { json = {}; }
     if (code === 200) {
@@ -535,11 +545,16 @@ function callGeminiQuiet_(body, models) {
   for (var m = 0; m < models.length; m++) {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[m] + ':generateContent';
     for (var i = 0; i < Math.min(2, keys.length); i++) {
-      var res = UrlFetchApp.fetch(url, {
-        method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
-        headers: {'x-goog-api-key': keys[(m + i) % keys.length].key}, muteHttpExceptions: true
-      });
-      if (res.getResponseCode() === 200) {
+      var res = null;
+      try {
+        res = UrlFetchApp.fetch(url, {
+          method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
+          headers: {'x-goog-api-key': keys[(m + i) % keys.length].key}, muteHttpExceptions: true
+        });
+      } catch (e) {
+        res = null;  // mạng lỗi hoặc quá lâu: thử lần sau
+      }
+      if (res && res.getResponseCode() === 200) {
         try { return parseGeminiResponse(JSON.parse(res.getContentText())); } catch (e) { return null; }
       }
       Utilities.sleep(1000);

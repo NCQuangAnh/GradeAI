@@ -41,10 +41,26 @@ function notationNorm_(s) {
   return normLetters(t);
 }
 
+/** Thiếu hoặc thừa "s" số nhiều ở cuối từ không tính là lỗi ("Twins" = "Twin"): bỏ một chữ s cuối mỗi từ. */
+function singular_(s) {
+  return String(s || '').replace(/([A-Za-z]{2,})s\b/g, function (m, w) { return /s$/i.test(w) ? m : w; });
+}
+
+/** Bản gốc và bản bỏ "s" số nhiều ở cuối từ. */
+function withSingular_(list) {
+  var out = list.slice();
+  list.forEach(function (s) { var one = singular_(s); if (out.indexOf(one) < 0) out.push(one); });
+  return out;
+}
+
 /** Phần trong ngoặc của đáp án là tùy chọn: "apologize (to sb) for + V-ing" nhận cả khi không viết "to sb". */
 function keyForms_(key) {
-  var full = notationNorm_(key), short = notationNorm_(String(key || '').replace(/\([^)]*\)/g, ' '));
-  return full === short ? [full] : [full, short];
+  var raw = String(key || ''), forms = [];
+  withSingular_([raw, raw.replace(/\([^)]*\)/g, ' ')]).forEach(function (s) {
+    var f = notationNorm_(s);
+    if (forms.indexOf(f) < 0) forms.push(f);
+  });
+  return forms;
 }
 
 function editDistance_(a, b) {
@@ -70,8 +86,7 @@ function editDistance_(a, b) {
  */
 function writtenForms_(written) {
   var s = String(written || ''), bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
-  var forms = [notationNorm_(s)];
-  if (bare !== s) forms.push(notationNorm_(bare));
+  var forms = withSingular_(bare === s ? [s] : [s, bare]).map(notationNorm_);
   forms.slice().forEach(function (f) {
     for (var n = 1; n <= 3 && n * 2 < f.length; n++) {
       if (f.slice(n, 2 * n) === f.slice(0, n)) forms.push(f.slice(n));
@@ -180,6 +195,63 @@ function matchNameExact_(written, roster) {
     else if (score && score === best) hits.push(name);
   });
   return hits.length === 1 ? hits[0] : '';
+}
+
+/** Chữ viết tắt tiếng Việt học sinh hay dùng (viết không dấu), đổi ra chữ đầy đủ trước khi so nghĩa. */
+var VI_ABBR = {ae: 'anh em', ace: 'anh chi em', ce: 'chi em', ac: 'anh chi', lm: 'lam', lmj: 'lam gi', lmg: 'lam gi',
+               lj: 'lam gi', j: 'gi', ko: 'khong', k: 'khong', hk: 'khong', dc: 'duoc', ng: 'nguoi', vs: 'voi',
+               xl: 'xin loi', cx: 'cung', mn: 'moi nguoi', ntn: 'nhu the nao', vd: 'vi du'};
+
+var KIN_ = /^(anh|chi|em)+$/;  // anh, chị, em (kể cả viết liền "anhem", "chiem")
+
+/** Nối các chữ lại, mỗi cụm chữ anh/chị/em liền nhau thành một dấu "#" (anh/chị/em = anh em = chị em = ce). */
+function kinJoin_(tokens) {
+  var out = '';
+  tokens.forEach(function (t) {
+    if (t === '#' || KIN_.test(t)) { if (out.slice(-1) !== '#') out += '#'; }
+    else out += t;
+  });
+  return out;
+}
+
+function viLetters_(s) {
+  var words = [];
+  stripAccents(String(s || '').toLowerCase()).replace(/\([^)]*\)/g, ' ').split(/[^a-z]+/).forEach(function (w) {
+    (VI_ABBR[w] || w).split(' ').forEach(function (x) { if (x) words.push(x); });
+  });
+  return kinJoin_(words);
+}
+
+/**
+ * Nghĩa em viết khớp nghĩa đáp án khi bỏ dấu, bỏ phần trong ngoặc, đổi chữ viết tắt (ae, ce, lmj...), coi cụm
+ * anh/chị/em là như nhau ("anh/chị/em sinh đôi" = "anh em sinh đôi" = "ace sinh đôi"; "chị em dâu" = "chị/em dâu"
+ * = "ce dâu") và coi các chữ khác nối bằng "/" là một nhóm được viết một hoặc vài chữ trong đó
+ * ("bố chồng/bố vợ" nhận "bố chồng/vợ"). Chỉ dùng để công nhận thêm, không chê.
+ */
+function viMatches_(written, key) {
+  var w = viLetters_(written);
+  if (!w) return false;
+  var units = stripAccents(String(key || '').toLowerCase()).replace(/\([^)]*\)/g, ' ')
+    .replace(/\s*\/\s*/g, '/').split(/[^a-z\/]+/).filter(String);
+  if (!units.length) return false;
+  var parts = units.map(function (u) {
+    var alts = u.split('/').filter(String);
+    if (alts.every(function (a) { return KIN_.test(a); })) return '#';
+    return alts.length > 1 ? '(?:' + alts.join('|') + ')+' : alts.join('');
+  });
+  var pattern = '';
+  parts.forEach(function (p) { if (!(p === '#' && pattern.slice(-1) === '#')) pattern += p; });
+  return new RegExp('^' + pattern + '$').test(w);
+}
+
+/** Nghĩa Gemini chê nhưng khớp đáp án theo viMatches_ thì công nhận (không cần hỏi lại). */
+function acceptKnownMeanings_(items, keyParts) {
+  var keyById = {};
+  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
+  items.forEach(function (it) {
+    var k = keyById[it.id];
+    if (k && !it.meaning_ok && String(it.written_vi || '').trim() && viMatches_(it.written_vi, k.vi)) it.meaning_ok = true;
+  });
 }
 
 /**

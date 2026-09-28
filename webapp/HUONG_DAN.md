@@ -163,6 +163,9 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
    - **như từ vựng (chính tả, nghĩa)**: dùng cho phần "từ / cụm từ / cấu trúc : nghĩa", ví dụ `admit + V-ing : thừa nhận làm gì`
      hay `opinion : quan điểm`. Chính tả chấm theo luật châm chước 1 lỗi; `Ving` = `V-ing` = `doing`, `O` = `sb`,
      phần trong ngoặc của đáp án như `(to sb)` không viết cũng được, nhãn em tự ghi đầu dòng (`O :`, `1.`) không tính.
+     Thiếu hoặc thừa "s" số nhiều ở cuối từ (Twin/Twins) và chữ viết dở rồi viết lại (`S' Sibling`) không tính lỗi.
+     Nghĩa: đáp án ghi "anh/chị/em" thì "anh em", "ae", "anhem", "chị em", "ce" đều đúng; cách dịch khác mà vẫn
+     đúng nghĩa (sister-in-law: chị/em vợ) cũng đúng.
    - **đúng/sai cả công thức**: dùng cho công thức dạng `S + V(s/es)`, câu gián tiếp, quy tắc trọng âm.
    AI tự chọn, cô chỉ cần đổi khi thấy chưa đúng. Học sinh viết khác thứ tự đáp án vẫn được chấm đúng mục.
    AI gộp hai khối nội dung vào một phần (ví dụ cấu trúc V-ing và OSASCOMP): bấm **Tách** ở mục đầu của khối sau,

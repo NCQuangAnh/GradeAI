@@ -6,12 +6,12 @@ const G = require('./load')();
 
 const ROOT = path.join(__dirname, '..', '..');
 const DIR = path.join(ROOT, 'data', 'TA6', '22-9');
-const MODEL = 'gemini-3.1-flash-lite';
+const MODEL = 'gemini-3.1-flash-lite';  // mô hình web dùng cho key miễn phí (CONFIG.MODEL_FREE)
 const HEIC_ID = '15XcOMpNq1IFxl1q3abC57v2xSe3k1RD5';  // IMG_7451.HEIC, ảnh bài mẫu gốc trên Drive
 // Danh sách lớp lấy từ data/ trên máy (không đưa tên học sinh vào code).
 const ROSTER = JSON.parse(fs.readFileSync(path.join(DIR, 'result.json'), 'utf8')).students.map((s) => s.name);
 
-const gemini = require('./gemini_keys')(G, MODEL);  // key miễn phí trước, hết lượt mới dùng key trả phí
+const gemini = require('./gemini_keys')(G, MODEL, { freeOnly: true });  // chỉ key miễn phí, như web với mô hình này
 
 (async () => {
   const keyImg = { mime: 'image/jpeg', b64: fs.readFileSync(path.join(DIR, 'key.jpg')).toString('base64') };

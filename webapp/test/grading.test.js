@@ -285,6 +285,33 @@ test('the key decides whether the meaning is graded: "formula : meaning" needs b
   assert.ok(row.notes.some((n) => n.includes('criticize') && n.includes('thiếu nghĩa')));
 });
 
+test('a missing or extra plural "s" and a restarted word are not spelling errors', () => {
+  assert.equal(G.letterErrors('Twins', 'Twin'), 0);
+  assert.equal(G.letterErrors('Sibling', 'Siblings'), 0);
+  assert.equal(G.letterErrors("S' Sibling", 'Sibling'), 0);
+  assert.equal(G.letterErrors('Libling', 'Sibling'), 1);   // a real slip still counts
+  assert.equal(G.letterErrors('glass', 'glass'), 0);
+});
+
+test('meanings with "/" groups and common abbreviations match the key', () => {
+  const ok = (w, k) => G.viMatches_(w, k);
+  assert.ok(ok('anh em sinh đôi', 'anh/chị/em sinh đôi'));
+  assert.ok(ok('ace sinh đôi', 'anh/chị/em sinh đôi'));
+  assert.ok(ok('anhem ruột', 'anh/chị/em ruột'));
+  assert.ok(ok('ce dâu', 'chị em dâu'));
+  assert.ok(ok('chịem dâu', 'chị em dâu'));
+  assert.ok(ok('chị/em dâu', 'chị em dâu'));
+  assert.ok(ok('thừa nhận lmj', 'thừa nhận làm gì'));
+  assert.ok(ok('cháu trai', 'cháu trai ( con của anh/chị/em )'));
+  assert.ok(ok('bố chồng/vợ', 'bố chồng/bố vợ'));
+  assert.ok(ok('anh/chị/em dâu', 'chị em dâu'));   // anh/chị/em written together count as one group
+  assert.ok(ok('chị dâu', 'chị em dâu'));
+  assert.ok(ok('anh/chị em rể', 'anh em rể'));
+  assert.ok(!ok('anh em', 'anh/chị/em sinh đôi'));   // "sinh đôi" is the main part
+  assert.ok(!ok('con dâu', 'chị em dâu'));
+  assert.ok(!ok('buộc ai lmj', 'buộc tội ai vì làm gì'));
+});
+
 test('a line Gemini filed under the wrong item (by meaning) goes back to the item it spells', () => {
   const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [
     { en: 'daughter-in-law', vi: 'con dâu' }, { en: 'sister-in-law', vi: 'chị em dâu' }, { en: 'brother-in-law', vi: 'anh em rể' }] }]);
@@ -302,6 +329,16 @@ test('a line Gemini filed under the wrong item (by meaning) goes back to the ite
   assert.deepEqual(checks.map((c) => [c.id, c.en, c.written]), [['1.2', 'sister-in-law', 'con dâu']]);
   G.applyMeaningChecks(g, [{ id: '1.2', ok: false }]);
   assert.equal(g.items.find((i) => i.id === '1.2').meaning_ok, false);
+});
+
+test('two lines Gemini swapped (brother-in-law / sister-in-law) are swapped back', () => {
+  const keyParts = G.prepareKey([{ part: 'TỪ VỰNG', kind: 'word', items: [
+    { en: 'brother-in-law', vi: 'anh em rể' }, { en: 'sister-in-law', vi: 'chị em dâu' }] }]);
+  const g = plain(G.normalizeGrade({ written_name: 'Tú Linh', matched_name: '', key_matches: true, unclear: [], items: [
+    { id: '1.1', written_en: 'Sister in-law', written_vi: 'anh/chị/em dâu', meaning_ok: false },
+    { id: '1.2', written_en: 'Brother in-law', written_vi: 'anh/chị/em rể', meaning_ok: false }] }, keyParts, ROSTER));
+  assert.deepEqual(g.items.map((i) => [i.id, i.written_en, i.meaning_ok]),
+    [['1.1', 'Brother in-law', true], ['1.2', 'Sister in-law', true]]);  // meanings accepted by viMatches_
 });
 
 test('a meaning the photo pass rejected is accepted when the re-check says it is right', () => {
