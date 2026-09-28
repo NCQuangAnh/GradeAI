@@ -43,6 +43,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Key Gemini (Script Properties): `GEMINI_FREE_KEYS` (dùng trước, xoay vòng khi hết lượt) rồi `GEMINI_API_KEY`
   (trả phí). Trạng thái hết lượt và số lượt dùng trong ngày (`countUse_`) lưu ở `KEY_STATE`, reset theo ngày giờ
   Thái Bình Dương. Phân loại lỗi: `classifyGeminiError`. Hạn mức miễn phí tính theo dự án (tài khoản), không theo key.
+  `callGemini_(body, allowPaid)`: key miễn phí trước (`tryKeys_`, lỗi tạm thời 503/mạng thì đợi 3 s, 8 s rồi thử lại);
+  mọi key miễn phí lỗi thì báo `FREE_KEYS_FAILED` kèm lý do từng key, web hỏi cô rồi gọi lại với allowPaid = true.
 - Kết quả mỗi buổi lưu ở `ket_qua_cham.json` trong folder buổi (đáp án đã xác nhận, kết quả từng ảnh, tên cô chọn,
   ảnh bị xóa, bảng đang duyệt). Chấm thêm ảnh chỉ chấm ảnh mới; `mergeTables` giữ các dòng cô đã sửa.
 - Đáp án: mỗi phần có `kind` (`word` = "cụm : nghĩa", code chấm chính tả bằng `decideVocab`, hiểu `Ving`/`V-ing`/`doing`,

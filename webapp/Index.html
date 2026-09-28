@@ -328,7 +328,7 @@ function load(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'
 function money(usd) { return '$' + usd.toFixed(4) + ' (~' + Math.round(usd * VND_PER_USD).toLocaleString('vi-VN') + 'đ)'; }
 function costText() { return `Đã tốn ${money(S.cost)} cho key trả phí, ${S.freeCalls} lượt dùng key miễn phí.`; }
 function track(r) { S.cost += r.costUsd || 0; if (r.paid === false) S.freeCalls++; }
-function errMsg(e) { return (e && e.message) || String(e); }
+function errMsg(e) { return String((e && e.message) || e).replace('KEY_MIEN_PHI_KHONG_DUNG_DUOC: ', 'Các key miễn phí đều không dùng được: '); }
 
 // ---------- class / session ----------
 async function loadClasses() {
@@ -833,7 +833,12 @@ async function readKey() {
   $('keyBox').innerHTML = '<p>Đang đọc đáp án...</p>'; $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
   S.cost = 0; S.freeCalls = 0;
   try {
-    S.key = await run('readKey', S.sesId);
+    try { S.key = await run('readKey', S.sesId, false); }
+    catch (e) {
+      const raw = String((e && e.message) || e);  // errMsg() làm đẹp câu báo lỗi, ở đây cần bản gốc
+      if (!raw.includes(FREE_KEYS_FAILED) || !(await askPaidKey(raw))) throw e;
+      S.key = await run('readKey', S.sesId, true);
+    }
     track(S.key);
   } catch (e) { $('keyBox').innerHTML = ''; return toast(errMsg(e), true); }
   renderKey();
@@ -932,6 +937,18 @@ function askChoice(message, yes, no) {
   });
 }
 
+/**
+ * Mọi key miễn phí đều không dùng được: hỏi cô có dùng key trả phí không, kèm lý do từng key.
+ * Đồng ý thì chỉ áp dụng cho lần chấm / đọc đáp án đang chạy.
+ */
+const FREE_KEYS_FAILED = 'KEY_MIEN_PHI_KHONG_DUNG_DUOC: ';
+function askPaidKey(msg) {
+  const reasons = msg.slice(msg.indexOf(FREE_KEYS_FAILED) + FREE_KEYS_FAILED.length).split('; ');
+  return askChoice(`Các key miễn phí đều không dùng được lúc này:<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
+    Dùng <b>key trả phí</b> để chấm tiếp (khoảng 40đ một bài)? Hoặc dừng lại, lát nữa bấm "Chấm ảnh mới" để thử key miễn phí.`,
+    'Dùng key trả phí', 'Dừng, thử lại sau');
+}
+
 /** Chấm lại mọi ảnh bằng đáp án đang dùng (không đọc lại đáp án). */
 async function regradeAll() {
   const ok = await askChoice(`Chấm lại <b>${S.gradable.length} ảnh</b> bằng đáp án đang dùng? Bảng chấm được lập lại từ đầu,
@@ -967,7 +984,7 @@ async function gradePhotos(photos, checkMatch) {
   setBusy(true);
   $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
   S.cost = S.cost || 0;
-  let lastKey = (S.key && S.key.keyLabel) || '', done = 0, failed = 0;
+  let lastKey = (S.key && S.key.keyLabel) || '', done = 0, failed = 0, allowPaid = false;
   const matches = [];
   for (let i = 0; i < photos.length; i++) {
     const p = photos[i];
@@ -976,10 +993,14 @@ async function gradePhotos(photos, checkMatch) {
       ảnh đã chấm được lưu rồi.</span></p>
       <div class="bar"><i style="width:${Math.round(i / photos.length * 100)}%"></i></div>`;
     try {
-      const r = await run('gradePhoto', sesId, p.id, keyParts, roster);
+      const r = await run('gradePhoto', sesId, p.id, keyParts, roster, allowPaid);
       track(r); lastKey = r.keyLabel || lastKey; done++; matches.push(r.keyMatches);
     } catch (e) {
-      const msg = errMsg(e);
+      const msg = errMsg(e), raw = String((e && e.message) || e);
+      if (raw.includes(FREE_KEYS_FAILED)) {  // key miễn phí đều lỗi: hỏi cô trước khi dùng key trả phí
+        if (await askPaidKey(raw)) { allowPaid = true; i--; continue; }  // chấm lại ảnh này bằng key trả phí
+        failed += photos.length - i; break;
+      }
       if (msg.includes('Không còn key nào')) {  // every key is out: stop instead of failing each photo
         failed += photos.length - i; toast(msg, true); break;
       }

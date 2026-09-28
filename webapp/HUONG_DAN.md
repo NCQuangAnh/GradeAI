@@ -52,6 +52,8 @@ hết tất cả key miễn phí mới dùng **key trả phí**. Lượt miễn 
 Trên tab **Chấm bài**, web hiện số key miễn phí còn dùng được, key nào đã hết lượt hôm nay và **số lượt mỗi key đã dùng
 trong ngày** (mỗi ảnh bài 1 lượt, mỗi lần đọc đáp án 1 lượt; ngày tính từ 14-15h giờ Việt Nam).
 Chi phí hiển thị chỉ tính các lượt dùng key trả phí.
+Khi cả 6 key miễn phí đều không dùng được (Google quá tải 503, hết lượt...), web đợi rồi thử lại; vẫn không được thì
+**hỏi cô có dùng key trả phí không**, kèm lý do của từng key. Không đồng ý thì dừng, lát sau bấm "Chấm ảnh mới".
 Hạn mức miễn phí tính theo từng tài khoản Gmail (dự án), không theo key; con số chính xác xem ở
 https://aistudio.google.com/rate-limit khi đăng nhập tài khoản tạo key (thường vài trăm tới khoảng 1.000 lượt/ngày
 cho Flash-Lite).

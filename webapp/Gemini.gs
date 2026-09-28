@@ -174,6 +174,7 @@ function classifyGeminiError(status, json) {
     return {kind: 'bad_key', reason: 'key không hợp lệ hoặc bị khóa'};
   }
   if (status === 404) return {kind: 'daily', reason: 'key không dùng được mô hình này'};
+  if (status === 503) return {kind: 'retry', reason: 'Google đang quá tải (503), thường hết sau vài phút'};
   if (status >= 500) return {kind: 'retry', reason: 'Google đang lỗi (' + status + ')'};
   return {kind: 'fatal', reason: 'Gemini lỗi ' + status + ': ' + (err.message || '')};
 }

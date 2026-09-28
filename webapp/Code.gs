@@ -499,18 +499,43 @@ function keyResting_(st, today, now) {
   return st && ((st.day && st.day === today) || (st.until && st.until > now));
 }
 
+/** Đầu thông báo lỗi khi mọi key miễn phí đều không dùng được: giao diện nhận ra để hỏi cô có dùng key trả phí. */
+var FREE_KEYS_FAILED = 'KEY_MIEN_PHI_KHONG_DUNG_DUOC: ';
+
 /**
- * Gọi Gemini, xoay vòng key (miễn phí trước). Lượt nào chỉ gặp lỗi tạm thời (Google quá tải 503, mạng chập chờn)
- * thì đợi rồi thử lại cả vòng key, tối đa 2 lần nữa.
+ * Gọi Gemini bằng key miễn phí trước. Mọi key miễn phí đều không được thì chỉ dùng key trả phí khi allowPaid
+ * (cô đã đồng ý trên web); nếu không, báo lỗi FREE_KEYS_FAILED kèm lý do của từng key.
  */
-function callGemini_(body) {
-  var keys = geminiKeys_(), today = pacificDay_(), problems = [], waits = [3000, 8000];
+function callGemini_(body, allowPaid) {
+  var all = geminiKeys_(), today = pacificDay_();
+  var free = all.filter(function (k) { return !k.paid; }), paid = all.filter(function (k) { return k.paid; });
+  var problems = [];
+  if (free.length) {
+    var f = tryKeys_(free, body, today);
+    if (f.result) return f.result;
+    problems = f.problems;
+    if (paid.length && !allowPaid) throw new Error(FREE_KEYS_FAILED + problems.join('; '));
+  }
+  if (paid.length) {
+    var p = tryKeys_(paid, body, today);
+    if (p.result) return p.result;
+    problems = problems.concat(p.problems);
+  }
+  throw new Error('Không còn key nào dùng được lúc này. ' +
+    (problems.length ? problems.join('; ') : 'Tất cả key đang nghỉ hoặc hết hạn mức hôm nay.'));
+}
+
+/**
+ * Thử lần lượt các key. Lượt nào chỉ gặp lỗi tạm thời (Google quá tải 503, mạng chập chờn) thì đợi 3 giây rồi
+ * 8 giây, thử lại cả vòng. Trả {result} khi được, hoặc {problems: lý do từng key}.
+ */
+function tryKeys_(keys, body, today) {
+  var waits = [3000, 8000], problems = [];
   for (var pass = 0; pass <= waits.length; pass++) {
-    var state = loadKeyState_(), transient = false;
-    problems = [];
+    var state = loadKeyState_(), transient = false, reasons = {};
     for (var i = 0; i < keys.length; i++) {
-      var k = keys[i], id = keyId_(k.key);
-      if (keyResting_(state[id], today, Date.now())) continue;
+      var k = keys[i], id = keyId_(k.key), st = state[id];
+      if (keyResting_(st, today, Date.now())) { reasons[k.label] = st.reason + ' (đang nghỉ)'; continue; }
       var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
         (k.paid ? CONFIG.MODEL_PAID : CONFIG.MODEL_FREE) + ':generateContent';
       var res;
@@ -521,7 +546,7 @@ function callGemini_(body) {
         });
       } catch (e) {  // mạng lỗi hoặc Gemini trả lời quá lâu: thử key tiếp, không đánh dấu key này hết lượt
         transient = true;
-        problems.push('key ' + k.label + ': ' + e.message);
+        reasons[k.label] = 'lỗi mạng hoặc quá lâu (' + e.message + ')';
         continue;
       }
       var code = res.getResponseCode(), json;
@@ -533,7 +558,7 @@ function callGemini_(body) {
         parsed.paid = k.paid;
         parsed.costUsd = k.paid ? parsed.inputTokens * CONFIG.PRICE_USD_PER_M.input / 1e6 +
           parsed.outputTokens * CONFIG.PRICE_USD_PER_M.output / 1e6 : 0;
-        return parsed;
+        return {result: parsed};
       }
       var c = classifyGeminiError(code, json);
       if (c.kind === 'fatal') throw new Error(c.reason);
@@ -545,14 +570,13 @@ function callGemini_(body) {
         if (c.kind === 'minute') state[id] = {until: Date.now() + c.retrySec * 1000, reason: c.reason, label: k.label};
         saveKeyState_(state);
       }
-      problems.push('key ' + k.label + ': ' + c.reason);
+      reasons[k.label] = c.reason;
     }
+    problems = keys.map(function (k) { return 'key ' + k.label + ': ' + (reasons[k.label] || '?'); });
     if (!transient || pass === waits.length) break;
     Utilities.sleep(waits[pass]);
   }
-  throw new Error('Không còn key nào dùng được lúc này. ' +
-    (problems.length ? problems.join('; ') + '. Nếu là "Google đang lỗi (503)" thì Google đang quá tải: đợi vài phút rồi bấm "Chấm ảnh mới".'
-                     : 'Tất cả key đang nghỉ hoặc hết hạn mức hôm nay.'));
+  return {problems: problems};
 }
 
 /**
@@ -604,11 +628,11 @@ function imageOf_(fileId) {
   return {mime: blob.getContentType(), b64: Utilities.base64Encode(blob.getBytes())};
 }
 
-function readKey(sessionId) {
+function readKey(sessionId, allowPaid) {
   requireUser_();
   var folder = DriveApp.getFolderById(sessionId), keys = keyFiles_(folder);
   if (!keys.length) throw new Error('Buổi này chưa có ảnh đáp án (key). Hãy tải key lên trước.');
-  var r = callGemini_(buildKeyRequest(keys.map(function (k) { return imageOf_(k.getId()); })));
+  var r = callGemini_(buildKeyRequest(keys.map(function (k) { return imageOf_(k.getId()); })), allowPaid);
   var key = normalizeKey(r.data), kept = reuseKeyLayout_(key, loadState_(folder).key);
   if (kept) { key = kept; key.reused = true; }
   key.costUsd = r.costUsd;
@@ -640,11 +664,11 @@ function saveKey(sessionId, key, restart) {
 }
 
 /** Chấm một ảnh và lưu kết quả ngay vào folder buổi. */
-function gradePhoto(sessionId, fileId, keyParts, roster) {
+function gradePhoto(sessionId, fileId, keyParts, roster, allowPaid) {
   requireUser_();
   var file = DriveApp.getFileById(fileId);
   keyParts = prepareKey(keyParts);
-  var r = callGemini_(buildGradeRequest(keyParts, roster, imageOf_(fileId)));
+  var r = callGemini_(buildGradeRequest(keyParts, roster, imageOf_(fileId)), allowPaid);
   var out = normalizeGrade(r.data, keyParts, roster);
   var checks = meaningChecks(out, keyParts);
   if (checks.length) {
