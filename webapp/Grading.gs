@@ -160,14 +160,29 @@ function decideVocab(items) {
   });
 }
 
-/** Forms a roster name can be written in: full, initials + last word, last word. */
+/** Phụ âm đầu tiếng Việt (viết không dấu) của một chữ: "phuc" -> "ph", "nguyen" -> "ng", "lan" -> "l". */
+var VI_ONSETS = ['ngh', 'ng', 'nh', 'ph', 'th', 'tr', 'ch', 'kh', 'gh', 'gi', 'qu'];
+function onset_(word) {
+  for (var i = 0; i < VI_ONSETS.length; i++) if (word.indexOf(VI_ONSETS[i]) === 0) return VI_ONSETS[i];
+  return word[0];
+}
+
+/**
+ * Forms a roster name can be written in: full, initials + last word, last word.
+ * Học sinh hay viết tắt bằng phụ âm đầu của chữ trước ghép chữ cuối: "PhLan" = "Phúc Lan", "Th.Hà" = "Thanh Hà"
+ * (tên 3 chữ thì cả kiểu lấy phụ âm đầu mọi chữ trước lẫn chỉ chữ ngay trước chữ cuối).
+ */
 function nameForms_(name) {
   var words = stripAccents(name).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
     .filter(function (w) { return w && !/^a\d+$/.test(w); });  // drop class tags like "a5"
   if (!words.length) return [];
-  var last = words[words.length - 1];
-  var initials = words.slice(0, -1).map(function (w) { return w[0]; }).join('') + last;
-  return [{form: words.join(''), score: 3}, {form: initials, score: 2}, {form: last, score: 1}];
+  var last = words[words.length - 1], before = words.slice(0, -1);
+  var forms = [{form: words.join(''), score: 3},
+               {form: before.map(function (w) { return w[0]; }).join('') + last, score: 2},
+               {form: before.map(onset_).join('') + last, score: 2}];
+  if (before.length > 1) forms.push({form: onset_(before[before.length - 1]) + last, score: 2});
+  forms.push({form: last, score: 1});
+  return forms;
 }
 
 /**

@@ -68,6 +68,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   (tên `UNASSIGNED`, không tự ghép lại); cô chọn tên trùng dòng đã có ảnh thì `buildTable` gộp (`mergeRowsByName`).
 - Test gọi Gemini thật (`gemini_live.js`, `tools/gemini_grade.py`) dùng `GEMINI_FREE_KEYS` trong `.env` trước, hết lượt mới
   sang `GEMINI_API_KEY` (`webapp/test/gemini_keys.js`).
+- Ghép tên (`matchName`/`nameForms_`): tên đủ, chữ cái đầu + chữ cuối, phụ âm đầu tiếng Việt + chữ cuối ("PhLan" = Phúc Lan,
+  cô dặn áp dụng mọi lớp), chữ cuối; khớp 2 em trở lên thì để cô chọn. Không lưu bảng biệt danh trong code (repo công khai).
 - Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.
   Lưu danh sách thì buổi đang mở được ghép lại tên (`rematchNames_`, dùng `writtenName` + `aiName`), không chấm lại.
   "Chấm lại tất cả" (`regradeAll`, giữ đáp án) và "Đọc lại đáp án..." bỏ các tên cô đặt tạm không có trong danh sách.

@@ -189,6 +189,8 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
    - **Đã có bài**: mỗi em một dòng. Ảnh nào không phải bài của em thì bấm **tách** (dưới "ảnh 1 ảnh 2"), rồi chọn ảnh
      cần tách; ảnh đó về mục "Bài chưa có tên". Bấm "Thôi" nếu bấm nhầm.
    Tên gõ khác hoa thường ("vinh", "VINH") được hiểu là tên trong danh sách lớp ("Vinh").
+   Tên viết tắt trên giấy được hiểu theo luật chung: phụ âm đầu của chữ trước + chữ cuối ("PhLan" = Phúc Lan,
+   "Th.Hà" = Thanh Hà); lớp có 2 em cùng khớp thì web để cô chọn.
    - **Chưa có bài**: chọn Vắng, Không có bài hoặc để trống.
    Web không cho xuất khi còn dòng chưa có tên hoặc trùng tên.
    Sửa thẳng vào ô: điểm ("12/13 từ"), từ viết sai, ghi chú. Mọi chỉnh sửa tự lưu.

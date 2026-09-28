@@ -79,6 +79,12 @@ test('names written on the paper match the roster', () => {
   }
   assert.equal(G.matchName('Mai', ROSTER), '');  // ambiguous: Khánh Mai, Ng Quỳnh Mai, Lê Q.Mai
   assert.equal(G.matchName('Bách Bách', ROSTER), 'Gia Bách');  // name written twice (first one was messy)
+  // onset of the first word + last word: "PhLan" = Phúc Lan, "Th.Hà" = Thanh Hà
+  const more = ['Phúc Lan', 'Thanh Hà', 'Bích Hà', 'Lê Nhật Vy', 'Phong Lan'];
+  assert.equal(G.matchName('Phlan', ['Phúc Lan', 'Thanh Hà', 'Bích Hà']), 'Phúc Lan');
+  assert.equal(G.matchName('Th.Hà', more), 'Thanh Hà');
+  assert.equal(G.matchName('Nhvy', more), 'Lê Nhật Vy');   // 3-word name: onset of the word before the last
+  assert.equal(G.matchName('Phlan', more), '');            // Phúc Lan and Phong Lan both fit: the teacher picks
 });
 
 test('penalties follow the agreed rules', () => {
