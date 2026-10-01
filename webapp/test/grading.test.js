@@ -333,6 +333,11 @@ test('a missing or extra plural "s" and a restarted word are not spelling errors
   assert.equal(G.letterErrors('Wast (n)', 'waste'), 1);
   assert.equal(G.letterErrors('waste (n) = waste (v)', 'waste'), 0);
   assert.equal(G.letterErrors('wase = wate', 'waste'), 1);
+  assert.equal(G.letterErrors('waste cn', 'waste'), 0);
+  assert.equal(G.letterErrors('Do the lunc laundry', 'do the laundry'), 0);   // half-written word, restarted
+  assert.equal(G.letterErrors('do the laundry', 'do the laundry'), 0);
+  assert.equal(G.letterErrors('wash the close', 'wash the clothes'), 2);   // "(n)" read as "cn"
+  assert.equal(G.letterErrors('cn', 'can'), 1);
   assert.equal(G.letterErrors('glass', 'glass'), 0);
 });
 
@@ -478,4 +483,28 @@ test('parseSessionDate reads old and new folder names', () => {
   assert.equal(G.parseSessionDate('ngày 13/9', 2026).sortKey, 20260913);
   assert.equal(G.parseSessionDate('NGÀY 27/09/26', 2000).sortKey, 20260927);
   assert.equal(G.parseSessionDate('abc', 2026), null);
+});
+
+test('normalizeGrade trusts the transcribed lines over what Gemini filed per item', () => {
+  const parts = [{ part: 'TỪ VỰNG', kind: 'word', items: [
+    { en: 'reduce', vi: 'giảm' }, { en: 'decrease', vi: 'giảm' }, { en: 'increase', vi: 'tăng' }, { en: 'do the laundry', vi: 'giặt giũ' }] }];
+  const r = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['1. do the laundly : giặt giũ', '2. Recrease = ~~tăn~~ giảm X increase : tăng'],
+    items: [
+      { id: '1.1', written_en: 'Recrease', written_vi: 'giảm', meaning_ok: true },
+      { id: '1.2', written_en: 'giảm', written_vi: '', meaning_ok: false },   // the meaning, filed as English
+      { id: '1.3', written_en: 'increase', written_vi: 'tăng', meaning_ok: true },
+      { id: '1.4', written_en: 'do the laundry', written_vi: 'giặt giũ', meaning_ok: true }] }, parts, []));
+  const by = Object.fromEntries(r.items.map((it) => [it.id, it.written_en]));
+  assert.equal(by['1.4'], 'do the laundly');   // spelling as copied in lines, not auto-corrected
+  assert.equal(by['1.2'], 'Recrease');         // "giảm" dropped, then the line moved to its item
+  const two = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['waste (n) : rác', 'waste (v) : lãng phí'],
+    items: [{ id: '1.1', written_en: 'waste (n) / waste (v)', written_vi: 'rác, lãng phí', meaning_ok: true },
+            { id: '1.2', written_en: 'decrease', written_vi: 'giảm', meaning_ok: true }] }, parts, []));
+  assert.equal(two.items[0].written_en, 'waste (n) / waste (v)');   // two lines filed together: kept
+  assert.equal(two.items[1].written_en, '');                        // not on the paper: dropped
+  assert.equal(G.letterErrors('waste (n) / waste (v)', 'waste'), 0);
+  assert.equal(by['1.1'], '');
+  assert.equal(by['1.3'], 'increase');
 });

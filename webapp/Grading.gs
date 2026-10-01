@@ -82,17 +82,26 @@ function editDistance_(a, b) {
 
 /** Từ loại em ghi kèm trong ngoặc không phải chữ của từ: "waste (n)", "Waste(V)", "leftover (adj)". */
 var POS_TAG_ = /\(\s*(n|v|adj|adv|prep|conj|pron|phr\.?\s*v)\s*\.?\s*\)/gi;
+var POS_TAG_MISREAD_ = /([a-z])\s+c(n|v)(?=\s|=|$)/gi;  // "waste (n)" AI đọc thành "waste cn"
 
 /**
  * Nhãn em tự ghi đầu dòng không tính là chữ của từ: "O : opinion" (OSASCOMP), "1. above", "a) below".
  * Chữ viết dở rồi viết lại ngay ("S' Sibling", "SiSibling") cũng không tính: bỏ 1-3 chữ cái đầu lặp lại phần sau.
  */
 function writtenForms_(written) {
-  var s = String(written || '').replace(POS_TAG_, ' ').trim();
+  var s = String(written || '').replace(POS_TAG_, ' ').replace(POS_TAG_MISREAD_, '$1 ').trim();
   var bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
   var raw = bare === s ? [s] : [s, bare];
   // "waste (n) = waste (v)": AI chép cả chuỗi từ nối bằng "=" vào một mục, so từng từ trong chuỗi
-  if (/=/.test(s)) s.split('=').forEach(function (w) { if (w.trim()) raw.push(w.trim()); });
+  if (/[=\/]/.test(s)) s.split(/[=\/]/).forEach(function (w) { if (w.trim()) raw.push(w.trim()); });
+  // chữ viết dở rồi viết lại ngay bằng chữ cùng chữ cái đầu ("Do the lunc laundry"): thử bỏ chữ viết dở
+  raw.slice().forEach(function (r) {
+    var toks = r.split(/\s+/);
+    for (var i = 0; i + 1 < toks.length; i++) {
+      var a = toks[i].toLowerCase(), b = toks[i + 1].toLowerCase();
+      if (a.length >= 2 && a.length < b.length && a[0] === b[0]) raw.push(toks.slice(0, i).concat(toks.slice(i + 1)).join(' '));
+    }
+  });
   var forms = withSingular_(raw).map(notationNorm_);
   forms.slice().forEach(function (f) {
     for (var n = 1; n <= 3 && n * 2 < f.length; n++) {

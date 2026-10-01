@@ -58,6 +58,10 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   Sau khi đọc ảnh: dòng bị ghép nhầm mục (theo nghĩa) được chuyển về mục đúng chữ (`realignLines_`, tô vàng); nghĩa bị
   chê mà em có viết thì hỏi lại bằng câu chỉ có chữ với `CONFIG.MEANING_MODELS` (`gemini-3.1-flash-lite`; `meaningChecks`, `callGeminiQuiet_`,
   chỉ key miễn phí, lỗi thì giữ kết quả cũ). Mô hình flash đọc ảnh tốt hơn nhưng ~48 giây/ảnh nên không dùng để chấm chính.
+  Gemini chép từng dòng vào `lines` trước (chữ gạch trong ~~ ~~, chữ chèn phía trên đưa vào dòng) rồi mới điền items;
+  `dropInvented_` đối chiếu: chữ không có trong lines thì lấy cụm gần giống trong lines (AI tự sửa chính tả) hoặc bỏ
+  (AI tự thêm), nghĩa tiếng Việt điền vào chỗ chữ tiếng Anh thì bỏ. TA6 26/9: khớp chấm tay 17/19 (trước 15/19);
+  thinkingLevel high chậm ~145 s/ảnh nên không dùng.
   Mỗi mục có `id`
   ("1.3", `prepareKey`, giữ nguyên khi sửa). Gemini trả kết quả theo `id`, ghép theo nội dung chứ không theo thứ tự dòng.
   Đổi tên phần (cột) sau khi chấm: `renamePart` / `renamePartIn_`, không chấm lại. `TỪ MỚI` là tên phần do cô chọn

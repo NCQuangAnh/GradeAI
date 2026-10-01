@@ -31,7 +31,12 @@ var GRADE_PROMPT = [
   'Bạn đọc bài làm viết tay của MỘT học sinh Việt Nam (ảnh đính kèm) và so với đáp án bên dưới.',
   'Ảnh có thể chỉ là MỘT MẶT của bài (mặt kia ở ảnh khác): chỉ điền các mục có trên ảnh này, mục không có thì để rỗng.',
   '',
-  'BƯỚC 1 - CHÉP LẠI từng dòng học sinh viết, ĐÚNG TỪNG CHỮ CÁI như trên giấy.',
+  'BƯỚC 1 - CHÉP LẠI từng dòng học sinh viết vào lines (mỗi dòng trên giấy một phần tử), ĐÚNG TỪNG CHỮ CÁI',
+  'như trên giấy, giữ nguyên dấu "=", ":", ngoặc. Đọc kỹ từng chữ cái của từ tiếng Anh, không đoán theo từ đúng',
+  '(em viết "laundly", "Recyle", "lesfover" thì chép đúng như vậy).',
+  'Chữ bị gạch, gạch chéo, tô đen hoặc viết đè ghi trong lines giữa ~~ ~~ ("Reduce = decrease : ~~tăn~~ giảm").',
+  'Chữ viết chèn nhỏ phía trên dòng (thường có mũi tên hoặc dấu ^ chỉ chỗ chèn, hay viết thay cho chữ bị gạch bên',
+  'dưới) là một phần của dòng đó: chép vào đúng chỗ chèn ("~~reuse~~ reduce : giảm", "increase : tăng").',
   'TUYỆT ĐỐI KHÔNG tự sửa lỗi chính tả: em viết "bellow" thì chép "bellow", không phải "below".',
   'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại',
   '(ví dụ "bố m̶e̶ chồng/vợ" thì chép "bố chồng/vợ"). Nghĩa có chữ bị gạch hoặc tô rồi viết chữ khác cạnh đó',
@@ -39,7 +44,9 @@ var GRADE_PROMPT = [
   '"S\' Sibling", "Si Sibling" thì chép "Sibling".',
   'Chỗ nào có tẩy xóa hoặc khó đọc mà ảnh hưởng tới kết quả thì ghi vào unclear (ví dụ "inside: chữ ngoài có thể bị gạch").',
   '',
-  'BƯỚC 2 - GHÉP với đáp án THEO NỘI DUNG, KHÔNG theo thứ tự dòng. items: đúng 1 phần tử cho MỖI mã mục của',
+  'BƯỚC 2 - GHÉP với đáp án CHỈ dựa trên lines (bỏ chữ trong ~~ ~~), THEO NỘI DUNG, KHÔNG theo thứ tự dòng.',
+  'written_en chép đúng chữ cái như trong lines; KHÔNG BAO GIỜ điền chữ không có trong lines (mục em không viết thì',
+  'để rỗng, không lấy chữ của đáp án). items: đúng 1 phần tử cho MỖI mã mục của',
   'đáp án (id như "1.3"). Học sinh thường viết khác thứ tự đáp án: dòng "deny + ving : phủ nhận" là mục',
   '"deny + V-ing" dù em viết ở dòng thứ mấy. Không tìm thấy dòng nào của mục đó trên ảnh thì written_en rỗng.',
   'Ghép theo CHỮ TIẾNG ANH em viết, KHÔNG theo nghĩa: dòng "sister in law : con dâu" là mục sister-in-law',
@@ -58,7 +65,8 @@ var GRADE_PROMPT = [
   '  "chỉ định" thay cho "chỉ trích" là SAI. Phần phụ đi kèm như "làm gì", "ai", "vì", "điều gì" được viết tắt.',
   '  Nghĩa trong đáp án chỉ là MỘT cách dịch: nghĩa khác mà vẫn đúng với từ tiếng Anh là đúng (brother-in-law:',
   '  anh/em rể, anh/em chồng, anh/em vợ; sister-in-law: chị/em dâu, chị/em chồng, chị/em vợ). Sai là khi nghĩa',
-  '  thuộc từ khác (sister-in-law : con dâu), thiếu phần chính hoặc hiểu sai từ.',
+  '  thuộc từ khác (sister-in-law : con dâu), thiếu phần chính hoặc hiểu sai từ. Nghĩa nói về một việc khác dù có',
+  '  chung chữ cũng là sai: leftover : "lãng phí đồ ăn" là SAI (leftover là đồ ăn thừa, không phải việc lãng phí).',
   '  Chữ viết tắt quen dùng hiểu như chữ đầy đủ: lm = làm; lmj, lmg, lj = làm gì; j = gì; ko, k, hk = không;',
   '  đc = được; ng = người; vs = với; xl = xin lỗi; cx = cũng; mn = mọi người; ntn = như thế nào; vd = ví dụ;',
   '  ae = anh em; ace = anh chị em; ce = chị em. Đáp án ghi "anh/chị/em" thì em viết "anh em", "chị em", "ae",',
@@ -108,6 +116,7 @@ function gradeSchema_() {
   return {
     type: 'OBJECT',
     properties: {
+      lines: {type: 'ARRAY', items: {type: 'STRING'}},  // chép từng dòng trước khi ghép mục: đọc sát chữ hơn
       written_name: {type: 'STRING'},
       matched_name: {type: 'STRING'},
       key_matches: {type: 'BOOLEAN'},
@@ -122,7 +131,8 @@ function gradeSchema_() {
       }},
       unclear: {type: 'ARRAY', items: {type: 'STRING'}}
     },
-    required: ['written_name', 'matched_name', 'key_matches', 'items', 'unclear']
+    required: ['lines', 'written_name', 'matched_name', 'key_matches', 'items', 'unclear'],
+    propertyOrdering: ['lines', 'written_name', 'matched_name', 'key_matches', 'items', 'unclear']
   };
 }
 
@@ -249,6 +259,8 @@ function normalizeGrade(data, keyParts, roster) {
     });
   });
   var unclear = (data.unclear || []).slice(), prepared = prepareKey(keyParts);
+  var lines = (data.lines || []).map(function (l) { return String(l || ''); });
+  dropInvented_(items, lines, prepared, unclear);
   realignLines_(items, prepared, unclear);
   acceptKnownMeanings_(items, prepared);
   var written = String(data.written_name || '').trim();
@@ -264,8 +276,55 @@ function normalizeGrade(data, keyParts, roster) {
     aiName: String(data.matched_name || '').trim(),  // tên AI đoán, để ghép lại khi cô sửa danh sách lớp
     keyMatches: data.key_matches !== false && (any || !items.length),
     items: items,
-    unclear: unclear
+    unclear: unclear,
+    lines: lines
   };
+}
+
+/**
+ * Chữ tiếng Anh AI điền cho một mục phải có trong các dòng nó vừa chép (lines, bỏ chữ bị gạch ~~ ~~).
+ * Không có mà một cụm trong lines gần giống (sai ≤ 2 chữ, chưa mục nào dùng) thì AI đã tự sửa chính tả khi điền:
+ * lấy cụm trong lines. Không có cụm nào thì AI tự thêm (thường lấy chữ đáp án cho mục em không viết): bỏ đi.
+ */
+var VI_MARKS_ = /[àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]/i;
+
+function dropInvented_(items, lines, keyParts, unclear) {
+  if (!lines.length) return;
+  var flat = function (s) { return normLetters(stripAccents(s)); };
+  var clean = lines.map(function (l) { return l.replace(/~~[^~]*~~/g, ' '); });
+  var text = flat(clean.join(' '));
+  var segs = [];
+  clean.forEach(function (l) {
+    l.split(/[=:;,]/).forEach(function (s) { if (/[a-z]/i.test(s) && !VI_MARKS_.test(s)) segs.push(s.replace(/^\s*\d+\s*[.)]\s*/, '').trim()); });
+  });
+  var keyById = {};
+  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
+  items.forEach(function (it) {
+    var w = flat(it.written_en);
+    if (!w) return;
+    if (VI_MARKS_.test(it.written_en)) {  // "Recrease = giảm": AI lấy nghĩa tiếng Việt làm chữ tiếng Anh của mục khác
+      unclear.push('AI ghi nghĩa "' + it.written_en + '" vào chỗ chữ tiếng Anh của mục ' + (keyById[it.id] || {}).en + ', đã bỏ');
+      it.written_en = ''; it.written_vi = ''; it.meaning_ok = false; it.correct = false;
+      return;
+    }
+    // "waste (n) / waste (v)": AI gộp hai dòng vào một mục, mỗi phần có trong bài là được
+    if (it.written_en.split(/[\/=]/).every(function (s) { return !flat(s) || text.indexOf(flat(s)) >= 0; })) return;
+    var used = items.map(function (o) { return o !== it && flat(o.written_en); });
+    var best = null, bestErr = 3;
+    segs.forEach(function (s) {
+      if (used.indexOf(flat(s)) >= 0) return;
+      var e = editDistance_(flat(s), w);
+      if (e < bestErr) { bestErr = e; best = s; }
+    });
+    var en = (keyById[it.id] || {}).en;
+    if (best) {
+      unclear.push('mục ' + en + ': AI ghi "' + it.written_en + '", trong bài em viết "' + best + '"');
+      it.written_en = best;
+      return;
+    }
+    unclear.push('AI ghi "' + it.written_en + '" cho mục ' + en + ' nhưng không thấy chữ này trong bài, đã bỏ');
+    it.written_en = ''; it.written_vi = ''; it.meaning_ok = false; it.correct = false;
+  });
 }
 
 /**
