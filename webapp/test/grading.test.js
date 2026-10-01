@@ -258,6 +258,21 @@ test('grading more photos later keeps what the teacher already reviewed', () => 
   assert.equal(row(t2, 'Em').values['TỪ VỰNG'], 'đi muộn');                 // no-photo row kept
   assert.equal(row(t2, 'Dũng').values['TỪ VỰNG'], '2/2 từ');                // new photo graded
   assert.equal(row(t2, 'Bình').values['TỪ VỰNG'], '2/2 từ');                // re-graded with both pages
+
+  // the teacher picks An to regrade: An's row takes the new result, other edits stay
+  const day2b = Object.assign({}, day2, { p1: res('p1', 'An', 'above', 'below') });
+  const t3prev = JSON.parse(JSON.stringify(t2));
+  row(t3prev, 'Dũng').values['CHÉP PHẠT'] = 'cô sửa';
+  const t2b = (() => {
+    const t = G.assembleSession(keyParts, roster, G.resultsForTable(day2b, G.overridesFromTable(t3prev), []), 'TA6', PENALTY);
+    t.rows.forEach((r) => (r.notes = r.notes.join('\n')));
+    return plain(G.mergeTables(t3prev, t, ['p1']));
+  })();
+  assert.equal(row(t2b, 'An').values['TỪ VỰNG'], '2/2 từ');
+  assert.equal(row(t2b, 'An').values['CHÉP PHẠT'], '');
+  assert.match(row(t2b, 'An').notes, /Đã chấm lại/);
+  assert.equal(row(t2b, 'Dũng').values['CHÉP PHẠT'], 'cô sửa');
+  assert.equal(t2b.rows.filter((r) => r.name === 'An').length, 1);
   assert.ok(row(t2, 'Bình').notes.startsWith('Ảnh của em thay đổi'));
   assert.equal(row(t2, 'Bình').flag, true);
   assert.equal(row(t2, 'Chi').status, 'graded');                            // named photo is a normal row now

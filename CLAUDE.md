@@ -76,6 +76,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   cô dặn áp dụng mọi lớp), chữ cuối; khớp 2 em trở lên thì để cô chọn. Không lưu bảng biệt danh trong code (repo công khai).
 - Danh sách lớp: `danh_sach_lop.json` trong folder lớp (cô sửa trên web, `saveClassRoster`), ưu tiên hơn file chấm gần nhất.
   Lưu danh sách thì buổi đang mở được ghép lại tên (`rematchNames_`, dùng `writtenName` + `aiName`), không chấm lại.
+  "Chấm lại bài chọn..." (`regradePicked`): chấm lại ảnh của các dòng cô tích, `buildTable(sessionId, freshIds)` /
+  `mergeTables(prev, next, fresh)` cho dòng có ảnh chấm lại được lấy kết quả mới, dòng khác giữ chỗ cô sửa.
   "Chấm lại tất cả" (`regradeAll`, giữ đáp án) và "Đọc lại đáp án..." bỏ các tên cô đặt tạm không có trong danh sách.
 - Ảnh bài làm (`isPhoto_`): mọi ảnh trừ tên bắt đầu bằng key, cham (cham_bai, cham-tay, "chấm tay"), ket_qua, da_xoa_
   (so sau khi bỏ dấu). `buildTable` bỏ kết quả của ảnh không còn là ảnh bài làm.

@@ -694,8 +694,11 @@ function renamePart(sessionId, oldName, newName) {
   return true;
 }
 
-/** Lập bảng từ tất cả ảnh đã chấm, giữ lại các dòng cô đã duyệt ở lần trước. */
-function buildTable(sessionId) {
+/**
+ * Lập bảng từ tất cả ảnh đã chấm, giữ lại các dòng cô đã duyệt ở lần trước.
+ * freshIds: ảnh cô vừa chọn chấm lại, dòng có các ảnh này lấy kết quả mới thay cho dòng cũ.
+ */
+function buildTable(sessionId, freshIds) {
   requireUser_();
   var folder = DriveApp.getFolderById(sessionId), classFolder = folder.getParents().next();
   var roster = getRoster_(classFolder), state = loadState_(folder);
@@ -709,7 +712,7 @@ function buildTable(sessionId) {
     resultsForTable(state.results, state.nameOverrides, state.ignored), classFolder.getName(), CONFIG.PENALTY);
   t.title = t.columns.indexOf(VOCAB) >= 0 ? VOCAB : state.key.parts.map(function (p) { return p.part; }).join(' + ');
   t.rows.forEach(function (r) { r.notes = r.notes.join('\n'); });
-  var merged = mergeTables(state.table, t);
+  var merged = mergeTables(state.table, t, freshIds);
   updateState_(folder, function (s) {
     Object.keys(s.results).forEach(function (id) { if (!present[id]) delete s.results[id]; });
     s.table = merged;

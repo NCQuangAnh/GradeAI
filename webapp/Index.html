@@ -118,6 +118,10 @@
   #vMsg { color: #c9ced8; font-size: 13px; text-align: center; margin: 4px 12px; min-height: 18px; }
 
   /* thông báo: vàng = cần xem, đỏ = lỗi */
+  .picklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 12px; margin: 10px 0; }
+  .picklist label { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 6px 0;
+    text-align: left; font-weight: normal; }
+  .picklist input { width: 20px; height: 20px; margin: 0; flex: none; }
   .alert { border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; background: var(--marker-soft);
            border: 1px solid #e7d57a; font-size: 15px; }
   .alert.bad { background: var(--pen-soft); border-color: #eab0b4; }
@@ -773,7 +777,8 @@ async function renderGradeTop() {
     action = `<div class="row">
       ${S.newPhotos.length ? `<button id="gradeNew" class="primary" type="button">Chấm ${S.newPhotos.length} ảnh mới</button>` : ''}
       ${S.table ? `<button id="openTable" type="button" class="${S.newPhotos.length ? '' : 'primary'}">Xem / sửa bảng chấm</button>` : ''}
-      ${S.gradable.length > S.newPhotos.length ? '<button id="regradeAll" type="button">Chấm lại tất cả</button>' : ''}
+      ${S.gradable.length > S.newPhotos.length ? `<button id="regradePick" type="button">Chấm lại bài chọn...</button>
+        <button id="regradeAll" type="button">Chấm lại tất cả</button>` : ''}
       </div>
       <details style="margin-top:8px"><summary>Đáp án đang dùng: ${esc(partsSummary(S.key))}</summary>
         <p class="muted">Đổi tên phần ở ô chọn bên dưới: cột trong bảng đổi theo, không phải chấm lại.</p>${keyListHtml(S.key, true)}
@@ -793,6 +798,7 @@ async function renderGradeTop() {
   if ($('readKey')) $('readKey').onclick = readKey;
   if ($('gradeNew')) $('gradeNew').onclick = () => gradePhotos(S.newPhotos, false);
   if ($('regradeAll')) $('regradeAll').onclick = regradeAll;
+  if ($('regradePick')) $('regradePick').onclick = regradePicked;
   if ($('gradeNewOldKey')) $('gradeNewOldKey').onclick = async () => {
     const k = await run('saveKey', S.sesId, S.key, false); S.key.parts = k.parts; gradePhotos(S.newPhotos, false);
   };
@@ -986,6 +992,35 @@ async function regradeAll() {
   gradePhotos(S.gradable, false);
 }
 
+/** Cô tích chọn bài (theo dòng của bảng) để chấm lại bằng đáp án đang dùng; các dòng khác giữ nguyên. */
+async function regradePicked() {
+  const done = new Set(S.gradable.map((p) => p.id));
+  const rows = ((S.table && S.table.rows) || []).map((r) => ({
+    name: String(r.name || '').trim() || 'Chưa có tên',
+    ids: (r.photos || []).map((p) => p.id).filter((id) => done.has(id)),
+  })).filter((r) => r.ids.length).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  if (!rows.length) return toast('Chưa có bài nào đã chấm.', true);
+  const ids = await new Promise((resolve) => {
+    $('alertBox').innerHTML = `<div class="alert">Chọn bài cần chấm lại (bằng đáp án đang dùng). Dòng được chấm lại sẽ lấy
+      kết quả mới, ô cô đã sửa ở dòng đó sẽ mất; các dòng khác giữ nguyên.
+      <div class="picklist">${rows.map((r, i) => `<label><input type="checkbox" data-i="${i}"> ${esc(r.name)}
+        <span class="muted">(${r.ids.length} ảnh)</span></label>`).join('')}</div>
+      <div class="row"><button id="pickGo" class="primary" type="button" disabled>Chấm lại 0 bài</button>
+        <button id="pickNo" type="button">Thôi</button></div></div>`;
+    const boxes = [...$('alertBox').querySelectorAll('input[data-i]')];
+    const picked = () => boxes.filter((b) => b.checked).map((b) => rows[+b.dataset.i]);
+    boxes.forEach((b) => (b.onchange = () => {
+      const n = picked().length;
+      $('pickGo').disabled = !n; $('pickGo').textContent = `Chấm lại ${n} bài`;
+    }));
+    $('pickGo').onclick = () => { const p = picked(); $('alertBox').innerHTML = ''; resolve(p.flatMap((r) => r.ids)); };
+    $('pickNo').onclick = () => { $('alertBox').innerHTML = ''; resolve(null); };
+    $('alertBox').scrollIntoView({ block: 'center' });
+  });
+  if (!ids || !ids.length) return;
+  gradePhotos(S.gradable.filter((p) => ids.includes(p.id)), false, ids);
+}
+
 function askContinue(message) {
   return new Promise((resolve) => {
     $('alertBox').innerHTML = `<div class="alert bad">${message}<div class="row">
@@ -1003,14 +1038,14 @@ function setBusy(busy) {
   $('gradeTop').querySelectorAll('button').forEach((b) => (b.disabled = busy));
 }
 
-async function gradePhotos(photos, checkMatch) {
+async function gradePhotos(photos, checkMatch, freshIds) {
   const sesId = S.sesId, keyParts = S.key.parts, roster = S.info.roster;  // cố định buổi đang chấm
   await flushSave();
   setBusy(true);
   $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
   S.cost = S.cost || 0;
   let lastKey = (S.key && S.key.keyLabel) || '', done = 0, failed = 0, allowPaid = false;
-  const matches = [];
+  const matches = [], okIds = [];
   for (let i = 0; i < photos.length; i++) {
     const p = photos[i];
     $('progress').innerHTML = `<p>Đang chấm ảnh ${i + 1}/${photos.length}${lastKey ? ' (key ' + esc(lastKey) + ')' : ''}...<br>
@@ -1019,7 +1054,7 @@ async function gradePhotos(photos, checkMatch) {
       <div class="bar"><i style="width:${Math.round(i / photos.length * 100)}%"></i></div>`;
     try {
       const r = await run('gradePhoto', sesId, p.id, keyParts, roster, allowPaid);
-      track(r); lastKey = r.keyLabel || lastKey; done++; matches.push(r.keyMatches);
+      track(r); lastKey = r.keyLabel || lastKey; done++; matches.push(r.keyMatches); okIds.push(p.id);
     } catch (e) {
       const msg = errMsg(e), raw = String((e && e.message) || e);
       if (raw.includes(FREE_KEYS_FAILED)) {  // key miễn phí đều lỗi: hỏi cô trước khi dùng key trả phí
@@ -1044,7 +1079,8 @@ async function gradePhotos(photos, checkMatch) {
   $('progress').innerHTML = `<p>Đã chấm ${done} ảnh${failed ? `, <b>${failed} ảnh chưa chấm được</b> (bấm "Chấm ảnh mới" để thử lại)` : ''}.
     ${costText()}</p>`;
   try {
-    await run('buildTable', sesId);
+    // chỉ dòng có ảnh chấm lại được mới lấy kết quả mới (ảnh lỗi giữ dòng cũ cô đã duyệt)
+    await run('buildTable', sesId, (freshIds || []).filter((id) => okIds.includes(id)));
   } catch (e) { toast('Lỗi khi lập bảng: ' + errMsg(e), true); }
   setBusy(false);
   await renderGradeTop();

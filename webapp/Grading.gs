@@ -652,8 +652,10 @@ function photoSet_(row) {
  * A row is kept from `prev` when it has exactly the same photos (or is still a no-photo row);
  * rows that got new photos are re-graded and marked. Manually added rows are kept.
  */
-function mergeTables(prev, next) {
+function mergeTables(prev, next, fresh) {
   if (!prev || !prev.rows || prev.columns.join('|') !== next.columns.join('|')) return next;
+  fresh = fresh || [];  // ảnh vừa được chấm lại theo yêu cầu của cô: dòng có ảnh đó lấy kết quả mới
+  var isFresh = function (r) { return (r.photos || []).some(function (p) { return fresh.indexOf(p.id) >= 0; }); };
   var prevBySet = {}, prevByName = {};
   prev.rows.forEach(function (r) {
     if ((r.photos || []).length) prevBySet[photoSet_(r)] = r;
@@ -662,6 +664,11 @@ function mergeTables(prev, next) {
   var used = {};
   var rows = next.rows.map(function (r) {
     var old = (r.photos || []).length ? prevBySet[photoSet_(r)] : null;
+    if (old && isFresh(r)) {
+      used[prev.rows.indexOf(old)] = true;
+      r.notes = 'Đã chấm lại dòng này' + (r.notes ? '\n' + r.notes : '');
+      return r;
+    }
     if (!old && !(r.photos || []).length) {
       var byName = prevByName[String(r.name || '').trim()];
       if (byName && !(byName.photos || []).length) old = byName;
@@ -675,6 +682,7 @@ function mergeTables(prev, next) {
     var byNameOld = prevByName[String(r.name || '').trim()];
     if (byNameOld && (byNameOld.photos || []).length) {
       used[prev.rows.indexOf(byNameOld)] = true;
+      if (isFresh(r)) return r;
       r.notes = 'Ảnh của em thay đổi (thêm hoặc xóa ảnh) nên AI chấm lại dòng này\n' +
         (Array.isArray(r.notes) ? r.notes.join('\n') : (r.notes || ''));
       r.flag = true;
