@@ -44,6 +44,7 @@ hết tất cả key miễn phí mới dùng **key trả phí**. Lượt miễn 
    |---|---|
    | `ALLOWED_EMAILS` | email được dùng web (cô và người cùng chấm), cách nhau bằng dấu phẩy |
    | `GEMINI_FREE_KEYS` | các key miễn phí, cách nhau bằng dấu phẩy: `key1,key2,key3` |
+   | `GEMINI_FREE_KEY_NAMES` | (không bắt buộc) tên hiện trên web cho từng key miễn phí, cùng thứ tự: `ten1,ten2,ten3`. Thiếu thì gọi "miễn phí #1"... |
    | `GEMINI_API_KEY` | key trả phí |
 
 3. **Lưu thuộc tính**. Thêm/bớt người dùng hoặc key sau này chỉ cần sửa các dòng này, có hiệu lực ngay, không cần triển khai lại.

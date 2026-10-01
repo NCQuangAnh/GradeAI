@@ -455,7 +455,9 @@ function updateState_(folder, change) {
 function geminiKeys_() {
   var props = PropertiesService.getScriptProperties();
   var free = String(props.getProperty('GEMINI_FREE_KEYS') || '').split(/[\s,]+/).filter(String);
-  var keys = free.map(function (k, i) { return {key: k, label: 'miễn phí #' + (i + 1), paid: false}; });
+  // tên hiển thị của từng key miễn phí (cùng thứ tự với GEMINI_FREE_KEYS), thiếu thì gọi "miễn phí #n"
+  var names = String(props.getProperty('GEMINI_FREE_KEY_NAMES') || '').split(',').map(function (s) { return s.trim(); });
+  var keys = free.map(function (k, i) { return {key: k, label: names[i] || 'miễn phí #' + (i + 1), paid: false}; });
   var paid = props.getProperty('GEMINI_API_KEY');
   if (paid) keys.push({key: paid, label: 'trả phí', paid: true});
   if (!keys.length) throw new Error('Chưa cài GEMINI_FREE_KEYS hoặc GEMINI_API_KEY trong Script Properties.');
@@ -525,13 +527,19 @@ function usageStats(from, to) {
     if (p.indexOf(USAGE_PREFIX) !== 0) return;
     try { var m = JSON.parse(props[p]); Object.keys(m).forEach(function (d) { days[d] = m[d]; }); } catch (e) { /* bỏ tháng lỗi */ }
   });
-  var order = geminiKeys_().map(function (k) { return k.label; });
+  var keys = geminiKeys_(), order = keys.map(function (k) { return k.label; });
+  // số liệu ghi trước khi đặt tên key ("miễn phí #2") tính vào tên hiện tại của key thứ 2
+  var free = keys.filter(function (k) { return !k.paid; });
+  var rename = function (label) {
+    var m = /^miễn phí #(\d+)$/.exec(label), k = m && free[+m[1] - 1];
+    return k ? k.label : label;
+  };
   var sum = function (pick) {
     var by = {};
     Object.keys(days).forEach(function (d) {
       if (!pick(d)) return;
-      Object.keys(days[d]).forEach(function (label) {
-        var c = days[d][label], s = by[label] = by[label] || {label: label, paid: label === 'trả phí', ok: 0, fail: 0, usd: 0};
+      Object.keys(days[d]).forEach(function (raw) {
+        var c = days[d][raw], label = rename(raw), s = by[label] = by[label] || {label: label, paid: label === 'trả phí', ok: 0, fail: 0, usd: 0};
         s.ok += c[0]; s.fail += c[1]; s.usd += c[2] || 0;
       });
     });

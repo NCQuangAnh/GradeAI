@@ -92,6 +92,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - Thống kê lượt gọi Gemini (tab Thống kê): `recordCall_` ghi mỗi lượt gọi (thành công/lỗi, USD) theo nhãn key và ngày giờ
   Việt Nam vào Script Property `USAGE_yyyy-MM`; `usageStats(from, to)` cộng hôm nay, toàn bộ, khoảng ngày cô chọn.
   Chỉ có số liệu từ khi triển khai bản này.
+  Tên key miễn phí: Script Property `GEMINI_FREE_KEY_NAMES` (cùng thứ tự `GEMINI_FREE_KEYS`; .env cho test), không ghi vào code;
+  thống kê cũ ghi "miễn phí #n" được tính vào tên của key thứ n.
 - Công thức: em ghi tên công thức bằng ký hiệu "S² =" (so sánh bằng), "S² hơn" (so sánh hơn): GRADE_PROMPT và `viSymbols_`.
   `dropInvented_` chỉ đối chiếu phần loại word (công thức viết nhiều tầng, chép thành dòng không khớp từng chữ).
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.

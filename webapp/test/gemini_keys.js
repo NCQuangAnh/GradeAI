@@ -7,8 +7,9 @@ const path = require('path');
 module.exports = function makeGemini(G, model, options) {
   const env = fs.readFileSync(path.join(__dirname, '..', '..', '.env'), 'utf8');
   const get = (name) => ((env.match(new RegExp('^' + name + '=(.+)$', 'm')) || [])[1] || '').trim();
+  const names = get('GEMINI_FREE_KEY_NAMES').split(',').map((s) => s.trim());  // tên key như Script Properties
   const keys = get('GEMINI_FREE_KEYS').split(',').map((k) => k.trim()).filter(Boolean)
-    .map((key, i) => ({ key, label: 'miễn phí #' + (i + 1), paid: false }));
+    .map((key, i) => ({ key, label: names[i] || 'miễn phí #' + (i + 1), paid: false }));
   if (get('GEMINI_API_KEY') && !(options && options.freeOnly)) keys.push({ key: get('GEMINI_API_KEY'), label: 'trả phí', paid: true });
   const out = new Set();  // key hết lượt hôm nay hoặc bị khóa: bỏ qua ở các lần gọi sau
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
