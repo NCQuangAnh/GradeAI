@@ -212,6 +212,9 @@ Google báo "Rất tiếc, không thể mở tệp". Chỉ cần làm một lầ
 - Xuất lại: file Sheet và ảnh bảng chấm được cập nhật đủ 10 bài.
 - Nếu đã thay ảnh đáp án, web báo và gợi ý đọc đáp án mới, chấm lại tất cả.
 - **Chấm lại tất cả** (nút cạnh "Xem / sửa bảng chấm"): chấm lại mọi ảnh bằng đáp án đang dùng, không đọc lại đáp án.
+- **Sửa đáp án** (trong "Đáp án đang dùng"): sửa chữ, nghĩa, thêm/xóa mục của đáp án đã xác nhận, có link xem ảnh đáp án để so.
+  Lưu xong chọn "lập lại bảng" (sửa chữ tiếng Anh: code chấm lại chính tả, không tốn lượt Gemini) hoặc "chấm lại" (sửa nghĩa,
+  thêm/xóa mục). Ngay sau khi AI đọc đáp án, phần sửa đáp án cũng mở sẵn.
 - **Chấm lại bài chọn...**: tích chọn các em cần chấm lại (bằng đáp án đang dùng). Chỉ dòng của các em đó lấy kết quả
   mới (ô cô đã sửa ở dòng đó mất, ghi chú "Đã chấm lại dòng này"); các dòng khác giữ nguyên.
   Muốn chấm lại thì dùng nút này.

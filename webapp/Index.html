@@ -782,7 +782,8 @@ async function renderGradeTop() {
       </div>
       <details style="margin-top:8px"><summary>Đáp án đang dùng: ${esc(partsSummary(S.key))}</summary>
         <p class="muted">Đổi tên phần ở ô chọn bên dưới: cột trong bảng đổi theo, không phải chấm lại.</p>${keyListHtml(S.key, true)}
-        <p><button id="readKey" type="button">Đọc lại đáp án và chấm lại tất cả</button></p></details>`;
+        <p class="row"><button id="editKey" type="button">Sửa đáp án</button>
+          <button id="readKey" type="button">Đọc lại đáp án và chấm lại tất cả</button></p></details>`;
   }
   top.innerHTML = `
     <p><b>${esc(S.info.className)}, buổi ${esc(S.info.label)}</b>: ${S.gradable.length} ảnh bài làm,
@@ -798,6 +799,11 @@ async function renderGradeTop() {
   if ($('readKey')) $('readKey').onclick = readKey;
   if ($('gradeNew')) $('gradeNew').onclick = () => gradePhotos(S.newPhotos, false);
   if ($('regradeAll')) $('regradeAll').onclick = regradeAll;
+  if ($('editKey')) $('editKey').onclick = () => {
+    S.key = JSON.parse(JSON.stringify(savedKey() || S.key));
+    $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
+    renderKey(true); $('keyBox').scrollIntoView({ block: 'start' });
+  };
   if ($('regradePick')) $('regradePick').onclick = regradePicked;
   if ($('gradeNewOldKey')) $('gradeNewOldKey').onclick = async () => {
     const k = await run('saveKey', S.sesId, S.key, false); S.key.parts = k.parts; gradePhotos(S.newPhotos, false);
@@ -873,16 +879,24 @@ function unitOf(part, kind) { return kind === 'word' ? 'từ' : (UNITS[part] || 
 /** Đáp án cô đã xác nhận trước đó cho buổi này (lưu trong folder buổi), nếu có. */
 function savedKey() { return S.info && S.info.state && S.info.state.key; }
 
-function renderKey() {
+/**
+ * editing = true: cô sửa đáp án đã xác nhận (nút "Sửa đáp án"), lưu xong chọn chấm lại hoặc chỉ lập lại bảng.
+ * Ngược lại là đáp án AI vừa đọc, cô sửa rồi bấm chấm.
+ */
+function renderKey(editing) {
+  S.keyEditing = !!editing;
   S.key.parts = S.key.parts.filter((p) => p.items.length);
   const total = S.key.parts.reduce((n, p) => n + p.items.filter((it) => String(it.en).trim()).length, 0);
+  const keyLinks = (S.info.keys || []).map((k, i) => `<a href="#" data-keyview="${esc(k.id)}">ảnh đáp án${
+    S.info.keys.length > 1 ? ' ' + (i + 1) : ''}</a>`).join(' · ');
   $('keyBox').innerHTML = `
-    <h2>Đáp án AI đọc được: ${esc(S.key.topic)}</h2>
+    <h2>${editing ? 'Sửa đáp án đang dùng' : 'Đáp án AI đọc được'}: ${esc(S.key.topic)}</h2>
+    ${keyLinks ? `<p>So với ${keyLinks}.</p>` : ''}
     ${S.key.reused ? '<p class="alert">Đáp án đọc lại có đúng các mục như đáp án cô đã xác nhận, nên giữ nguyên cách chia phần, tên phần và cách chấm cũ.</p>' : ''}
     <p class="muted"><b>${S.key.parts.map((p) => `${p.items.length} ${p.unit} (${esc(p.part)})`).join(', ')}</b>, tổng ${total} mục.
-      Cô kiểm tra số mục có đúng không. Sửa trực tiếp hoặc bấm Xóa ở mục thừa;
+      Cô kiểm tra số mục có đúng không. AI đọc sai chữ thì <b>sửa thẳng vào ô</b>; mục thừa bấm Xóa, thiếu thì bấm + Thêm mục;
       hai khối nội dung bị gộp chung thì bấm <b>Tách</b> ở mục đầu của khối sau.</p>
-    <details ${total ? '' : 'open'}><summary>Xem và sửa đáp án</summary>${S.key.parts.map((p, pi) => `<h2>${partNameSelect(p, S.key.parts, `data-p="${pi}"`)}</h2>
+    <details open><summary>Đáp án (bấm để thu gọn)</summary>${S.key.parts.map((p, pi) => `<h2>${partNameSelect(p, S.key.parts, `data-p="${pi}"`)}</h2>
       <label class="muted">Cách chấm <select class="kind" data-p="${pi}" style="width:auto">${Object.keys(KINDS).map((k) =>
         `<option value="${k}" ${partKind(p) === k ? 'selected' : ''}>${KINDS[k]}</option>`).join('')}</select></label>${
       p.items.map((it, ii) => `<div class="row" style="margin-bottom:6px">
@@ -894,16 +908,27 @@ function renderKey() {
       <div class="row" style="margin-top:10px">
         <select id="newPart">${PARTS.filter((n) => !S.key.parts.some((p) => p.part === n)).map((n) => `<option>${n}</option>`).join('')}</select>
         <button id="addPart" type="button">+ Thêm phần</button></div></details>
+    ${editing ? `<p class="muted">Sửa chữ tiếng Anh: chỉ cần lập lại bảng (chính tả do code chấm theo đáp án mới, không tốn lượt Gemini).
+      Sửa nghĩa, thêm hoặc xóa mục, đổi cách chấm: nên chấm lại để AI xét lại theo đáp án mới.
+      Cả hai cách đều lập lại bảng: ô cô đã sửa trong bảng sẽ mất.</p>
     <div class="row" style="margin-top:10px">
+      <button id="saveRebuild" class="primary" type="button" ${total ? '' : 'disabled'}>Lưu, lập lại bảng (không chấm lại)</button>
+      <button id="saveRegrade" type="button" ${total ? '' : 'disabled'}>Lưu, chấm lại ${S.gradable.length} bài</button>
+      <button id="cancelEdit" type="button">Thôi, không sửa</button>
+    </div>` : `<div class="row" style="margin-top:10px">
       <button id="goGrade" class="primary" type="button" ${total ? '' : 'disabled'}>Đúng, chấm ${S.gradable.length} bài</button>
       ${savedKey() && !S.key.reused ? '<button id="oldKey" type="button">Dùng lại đáp án cũ</button>' : ''}
       <button id="badKey" type="button">Sai đáp án, tải lại key</button>
-    </div>`;
+    </div>`}`;
+  $('keyBox').querySelectorAll('[data-keyview]').forEach((a) => (a.onclick = (e) => {
+    e.preventDefault(); openViewerById(a.dataset.keyview);
+  }));
   $('keyBox').querySelectorAll('input[data-f]').forEach((el) => (el.oninput = () => {
     S.key.parts[+el.dataset.p].items[+el.dataset.i][el.dataset.f] = el.value;
-    $('goGrade').disabled = !S.key.parts.some((p) => p.items.some((it) => String(it.en).trim()));
+    const any = S.key.parts.some((p) => p.items.some((it) => String(it.en).trim()));
+    ['goGrade', 'saveRebuild', 'saveRegrade'].forEach((id) => { if ($(id)) $(id).disabled = !any; });
   }));
-  const reopen = () => { renderKey(); $('keyBox').querySelector('details').open = true; };
+  const reopen = () => renderKey(S.keyEditing);
   $('keyBox').querySelectorAll('select.partName').forEach((el) => (el.onchange = () => {
     const p = S.key.parts[+el.dataset.p]; p.part = el.value; p.unit = unitOf(p.part, partKind(p)); reopen();
   }));
@@ -932,16 +957,42 @@ function renderKey() {
     S.key.parts.push({ part, kind, unit: unitOf(part, kind), items: [{ en: '', vi: '' }] });
     S.key.parts.sort((a, b) => PARTS.indexOf(a.part) - PARTS.indexOf(b.part)); reopen();
   };
-  $('goGrade').onclick = async () => {
-    $('goGrade').disabled = true;
-    const parts = S.key.parts.map((p) => ({ part: p.part, kind: partKind(p), unit: p.unit,
-      items: p.items.filter((it) => String(it.en).trim()) })).filter((p) => p.items.length);  // bỏ mục để trống
-    try { S.key.parts = (await run('saveKey', S.sesId, { topic: S.key.topic, parts }, true)).parts; }
-    catch (e) { $('goGrade').disabled = false; return toast(errMsg(e), true); }
-    $('keyBox').innerHTML = '';
-    gradePhotos(S.gradable, true);
+  // bỏ mục để trống; mục cũ giữ id (kết quả đã chấm ghép theo id)
+  const cleanParts = () => S.key.parts.map((p) => ({ part: p.part, kind: partKind(p), unit: p.unit,
+    items: p.items.filter((it) => String(it.en).trim()).map((it) => Object.assign({}, it)) })).filter((p) => p.items.length);
+  if (!editing) {
+    $('goGrade').onclick = async () => {
+      $('goGrade').disabled = true;
+      try { S.key.parts = (await run('saveKey', S.sesId, { topic: S.key.topic, parts: cleanParts() }, true)).parts; }
+      catch (e) { $('goGrade').disabled = false; return toast(errMsg(e), true); }
+      $('keyBox').innerHTML = '';
+      gradePhotos(S.gradable, true);
+    };
+    $('badKey').onclick = () => { $('keyBox').innerHTML = ''; showTab('upload'); };
+    return;
+  }
+  const saveEdited = async (regrade) => {
+    ['saveRebuild', 'saveRegrade'].forEach((id) => ($(id).disabled = true));
+    await flushSave();
+    // mục cô thêm: mã mới lớn hơn mọi mã cũ, để kết quả đã chấm của mục đã xóa không bị ghép nhầm vào mục mới
+    const old = ((savedKey() || {}).parts || []).flatMap((p) => p.items.map((it) => +String(it.id || '').split('.')[1] || 0));
+    let next = Math.max(0, ...old);
+    const parts = cleanParts();
+    parts.forEach((p, pi) => p.items.forEach((it) => { if (!it.id) it.id = `${pi + 1}.${++next}`; }));
+    try {
+      S.key.parts = (await run('saveKey', S.sesId, { topic: S.key.topic, parts }, regrade)).parts;
+      $('keyBox').innerHTML = '';
+      if (regrade) return gradePhotos(S.gradable, false);
+      const done = S.gradable.map((p) => p.id);  // mọi dòng tính lại theo đáp án mới
+      S.table = await run('buildTable', S.sesId, done);
+    } catch (e) { toast(errMsg(e), true); return renderKey(true); }
+    toast('Đã lưu đáp án và lập lại bảng');
+    await renderGradeTop();
+    if (S.table) renderTable();
   };
-  $('badKey').onclick = () => { $('keyBox').innerHTML = ''; showTab('upload'); };
+  $('saveRebuild').onclick = () => saveEdited(false);
+  $('saveRegrade').onclick = () => saveEdited(true);
+  $('cancelEdit').onclick = () => { $('keyBox').innerHTML = ''; renderGradeTop(); };
 }
 
 /** Hỏi xác nhận ngay trên trang (không dùng hộp thoại của trình duyệt). */
