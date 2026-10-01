@@ -327,6 +327,12 @@ test('a missing or extra plural "s" and a restarted word are not spelling errors
   assert.equal(G.letterErrors('Sibling', 'Siblings'), 0);
   assert.equal(G.letterErrors("S' Sibling", 'Sibling'), 0);
   assert.equal(G.letterErrors('Libling', 'Sibling'), 1);   // a real slip still counts
+  // part-of-speech tags and "=" chains copied into one item are not letters of the word
+  assert.equal(G.letterErrors('waste (n)', 'waste'), 0);
+  assert.equal(G.letterErrors('Waste(V)', 'waste'), 0);
+  assert.equal(G.letterErrors('Wast (n)', 'waste'), 1);
+  assert.equal(G.letterErrors('waste (n) = waste (v)', 'waste'), 0);
+  assert.equal(G.letterErrors('wase = wate', 'waste'), 1);
   assert.equal(G.letterErrors('glass', 'glass'), 0);
 });
 
