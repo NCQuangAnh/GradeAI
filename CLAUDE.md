@@ -101,5 +101,6 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
 - `gemini-2.5-flash-lite` trả 404 cho tài khoản mới (27/09/2026). Web dùng `gemini-3.1-flash-lite` cho cả key miễn phí
   (`CONFIG.MODEL_FREE`) và trả phí (`CONFIG.MODEL_PAID`, đã biết giá). Đã thử `gemini-3.5-flash-lite` trên 18 bài TA6 23/9:
   đọc nhầm 6 bài (3.1: 1 bài), kết quả mỗi lần chạy khác nhau, có lượt ~290 giây, nên chưa dùng. Lỗi mạng/quá lâu thì sang key khác.
-- Chính tả: thiếu/thừa "s" số nhiều cuối từ không tính lỗi (`singular_`); nghĩa khớp đáp án sau khi bỏ dấu, đổi chữ
+- Chính tả: từ loại trong ngoặc ("waste (n)", `POS_TAG_`) và chuỗi "A = B" AI chép vào một mục (so từng từ) không tính lỗi;
+  thiếu/thừa "s" số nhiều cuối từ không tính lỗi (`singular_`); nghĩa khớp đáp án sau khi bỏ dấu, đổi chữ
   viết tắt (ae, ace, ce, lmj...) và coi "anh/chị/em" là nhóm chọn được thì công nhận ngay (`viMatches_`).
