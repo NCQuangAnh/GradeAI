@@ -520,6 +520,21 @@ test('normalizeGrade trusts the transcribed lines over what Gemini filed per ite
   assert.equal(two.items[0].written_en, 'waste (n) / waste (v)');   // two lines filed together: kept
   assert.equal(two.items[1].written_en, '');                        // not on the paper: dropped
   assert.equal(G.letterErrors('waste (n) / waste (v)', 'waste'), 0);
+  const formula = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['S² = S1 + tobe + as adj + S2', '              V        adv'],
+    items: [{ id: '1.1', written_en: 'S1 + tobe/V + as + adj/adv + as + S2', written_vi: 'S² =', meaning_ok: true, correct: true }] },
+    [{ part: 'CÔNG THỨC', kind: 'formula', items: [{ en: 'S1 + tobe/V + as + adj/adv + as + S2', vi: 'So sánh bằng' }] }], []));
+  assert.equal(formula.items[0].written_en, 'S1 + tobe/V + as + adj/adv + as + S2');   // formulas are not checked
   assert.equal(by['1.1'], '');
   assert.equal(by['1.3'], 'increase');
+});
+
+test('comparison formulas named with the S² shorthand count as their meaning', () => {
+  assert.ok(G.viMatches_('S² =', 'So sánh bằng'));
+  assert.ok(G.viMatches_('S2 =', 'so sánh bằng'));
+  assert.ok(G.viMatches_('s^2 hơn', 'So sánh hơn'));
+  assert.ok(G.viMatches_('ss hơn', 'So sánh hơn'));
+  assert.ok(G.viMatches_('SS nhất', 'so sánh nhất'));
+  assert.ok(!G.viMatches_('S² =', 'So sánh hơn'));
+  assert.ok(!G.viMatches_('S² hơn', 'So sánh bằng'));
 });

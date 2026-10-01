@@ -118,6 +118,9 @@
   #vMsg { color: #c9ced8; font-size: 13px; text-align: center; margin: 4px 12px; min-height: 18px; }
 
   /* thông báo: vàng = cần xem, đỏ = lỗi */
+  table.stats { width: 100%; border-collapse: collapse; margin: 6px 0 14px; font-size: 14px; }
+  table.stats th, table.stats td { padding: 6px 4px; border-bottom: 1px solid var(--rule-soft); text-align: left; }
+  table.stats .score { text-align: right; white-space: nowrap; }
   .picklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 12px; margin: 10px 0; }
   .picklist label { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 6px 0;
     text-align: left; font-weight: normal; }
@@ -253,6 +256,7 @@
   <nav class="tabs">
     <button data-tab="upload" class="on" type="button">1. Chụp bài</button>
     <button data-tab="grade" type="button">2. Chấm bài</button>
+    <button data-tab="stats" type="button">Thống kê</button>
   </nav>
 
   <section id="tab-upload" class="card">
@@ -284,6 +288,20 @@
     <div id="alertBox"></div>
     <div id="tableBox"></div>
     <div id="exportBox"></div>
+  </section>
+
+  <section id="tab-stats" class="card" hidden>
+    <h2>Thống kê lượt gọi Gemini</h2>
+    <p class="muted">Mỗi lần đọc đáp án, chấm một ảnh hay hỏi lại nghĩa là một lượt gọi. "Lỗi" là lượt Google trả lỗi
+      (quá tải, hết hạn mức...) rồi web chuyển sang key khác. Ngày tính theo giờ Việt Nam.</p>
+    <div id="statsBox" class="muted">Đang tải...</div>
+    <h2>Tự chọn ngày</h2>
+    <div class="row">
+      <label>Từ ngày <input type="date" id="statFrom"></label>
+      <label>Đến ngày <input type="date" id="statTo"></label>
+      <button id="statGo" type="button">Xem</button>
+    </div>
+    <div id="statsRange"></div>
   </section>
 </main>
 <div id="toast"></div>
@@ -414,10 +432,47 @@ $('ses').onchange = onSession;
 document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 function showTab(name) {
   document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === name));
-  $('tab-upload').hidden = name !== 'upload'; $('tab-grade').hidden = name !== 'grade';
+  $('tab-upload').hidden = name !== 'upload'; $('tab-grade').hidden = name !== 'grade'; $('tab-stats').hidden = name !== 'stats';
+  if (name === 'stats') loadStats();
   if (name === 'grade') $('tableBox').querySelectorAll('textarea').forEach(autoGrow);
   if (name === 'grade' && S.sesId && !S.busy && !$('keyBox').innerHTML) flushSave().then(renderGradeTop);
 }
+
+// ---------- thống kê lượt gọi Gemini ----------
+function statsTable(title, rows) {
+  const free = rows.filter((r) => !r.paid), paid = rows.filter((r) => r.paid);
+  const tot = (list, f) => list.reduce((n, r) => n + r[f], 0);
+  const line = (r) => `<tr><td>${esc(r.label)}</td><td class="score">${r.ok}</td><td class="score">${r.fail}</td>
+    <td class="score">${r.paid ? '$' + r.usd.toFixed(4) + ' (~' + Math.round(r.usd * VND_PER_USD) + 'đ)' : ''}</td></tr>`;
+  return `<h2>${title}</h2>
+    <p><b>Key miễn phí: ${tot(free, 'ok')} lượt</b> thành công, ${tot(free, 'fail')} lỗi.
+      <b>Key trả phí: ${tot(paid, 'ok')} lượt</b>${tot(paid, 'usd') ? `, hết $${tot(paid, 'usd').toFixed(4)}
+      (~${Math.round(tot(paid, 'usd') * VND_PER_USD)}đ)` : ''}.</p>
+    <table class="stats"><thead><tr><th>Key</th><th class="score">Thành công</th>
+      <th class="score">Lỗi</th><th class="score">Chi phí</th></tr></thead>
+      <tbody>${rows.map(line).join('')}</tbody></table>`;
+}
+
+const fmtDay = (d) => d.split('-').reverse().join('/');
+async function loadStats(from, to) {
+  if (!from) $('statsBox').innerHTML = 'Đang tải...';
+  try {
+    const s = await run('usageStats', from || '', to || '');
+    if (!from) {
+      $('statsBox').innerHTML = statsTable(`Hôm nay (${fmtDay(s.today)})`, s.todayRows) +
+        statsTable(`Tổng từ ${fmtDay(s.firstDay)} đến nay`, s.allRows);
+      if (!$('statTo').value) { $('statTo').value = s.today; $('statFrom').value = s.firstDay; }
+    } else {
+      $('statsRange').innerHTML = statsTable(`Từ ${fmtDay(from)} đến ${fmtDay(to)}`, s.rangeRows);
+    }
+  } catch (e) { (from ? $('statsRange') : $('statsBox')).innerHTML = ''; toast(errMsg(e), true); }
+}
+$('statGo').onclick = () => {
+  let from = $('statFrom').value, to = $('statTo').value;
+  if (!from || !to) return toast('Chọn đủ ngày bắt đầu và ngày kết thúc', true);
+  if (from > to) [from, to] = [to, from];
+  loadStats(from, to);
+};
 
 // ---------- upload ----------
 // Ngưỡng đo trên 32 ảnh thật lớp TA6 (tools/calibrate_quality.py): ảnh thật có độ nét 749-2525,

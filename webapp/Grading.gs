@@ -245,9 +245,15 @@ function kinJoin_(tokens) {
   return out;
 }
 
+/** "S² =", "S2 =", "s^2 =", "ss =" = so sánh bằng; "S² hơn" = so sánh hơn (tên công thức em viết tắt). */
+function viSymbols_(s) {
+  return String(s || '').replace(/(^|[^a-z0-9])s\s*(?:\^\s*2|²|2|s)(?![a-z0-9])/gi, '$1 so sánh ')
+    .replace(/=/g, ' bằng ').replace(/>/g, ' hơn ');
+}
+
 function viLetters_(s) {
   var words = [];
-  stripAccents(String(s || '').toLowerCase()).replace(/\([^)]*\)/g, ' ').split(/[^a-z]+/).forEach(function (w) {
+  stripAccents(viSymbols_(s).toLowerCase()).replace(/\([^)]*\)/g, ' ').split(/[^a-z]+/).forEach(function (w) {
     (VI_ABBR[w] || w).split(' ').forEach(function (x) { if (x) words.push(x); });
   });
   return kinJoin_(words);

@@ -491,6 +491,65 @@ function countUse_(id, today) {
   }
 }
 
+/**
+ * Thống kê lượt gọi Gemini theo ngày giờ Việt Nam, mỗi tháng một Script Property USAGE_yyyy-MM:
+ * {"2026-10-01": {"miễn phí #1": [thành công, lỗi, USD], "trả phí": [...]}}. Lỗi = Google trả lỗi hoặc mạng lỗi.
+ */
+var USAGE_PREFIX = 'USAGE_';
+function vnDay_() { return Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'); }
+
+function recordCall_(label, ok, usd) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;  // không lấy được khóa thì bỏ lượt ghi này, không làm chậm việc chấm
+  try {
+    var day = vnDay_(), prop = USAGE_PREFIX + day.slice(0, 7), props = PropertiesService.getScriptProperties();
+    var month = {};
+    try { month = JSON.parse(props.getProperty(prop) || '{}'); } catch (e) { month = {}; }
+    var d = month[day] = month[day] || {}, c = d[label] = d[label] || [0, 0, 0];
+    c[ok ? 0 : 1]++;
+    if (usd) c[2] = Math.round((c[2] + usd) * 1e7) / 1e7;
+    props.setProperty(prop, JSON.stringify(month));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Thống kê cho tab Thống kê: hôm nay, toàn bộ, và khoảng ngày cô chọn (from, to dạng yyyy-MM-dd, tính cả 2 đầu).
+ * Mỗi mục: [{label, paid, ok, fail, usd}] theo thứ tự key hiện tại (key đã bỏ khỏi cài đặt xếp cuối).
+ */
+function usageStats(from, to) {
+  requireUser_();
+  var props = PropertiesService.getScriptProperties().getProperties(), days = {};
+  Object.keys(props).forEach(function (p) {
+    if (p.indexOf(USAGE_PREFIX) !== 0) return;
+    try { var m = JSON.parse(props[p]); Object.keys(m).forEach(function (d) { days[d] = m[d]; }); } catch (e) { /* bỏ tháng lỗi */ }
+  });
+  var order = geminiKeys_().map(function (k) { return k.label; });
+  var sum = function (pick) {
+    var by = {};
+    Object.keys(days).forEach(function (d) {
+      if (!pick(d)) return;
+      Object.keys(days[d]).forEach(function (label) {
+        var c = days[d][label], s = by[label] = by[label] || {label: label, paid: label === 'trả phí', ok: 0, fail: 0, usd: 0};
+        s.ok += c[0]; s.fail += c[1]; s.usd += c[2] || 0;
+      });
+    });
+    order.forEach(function (label) { by[label] = by[label] || {label: label, paid: label === 'trả phí', ok: 0, fail: 0, usd: 0}; });
+    return Object.keys(by).map(function (l) { return by[l]; }).sort(function (a, b) {
+      var ia = order.indexOf(a.label), ib = order.indexOf(b.label);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.label.localeCompare(b.label);
+    });
+  };
+  var today = vnDay_(), list = Object.keys(days).sort();
+  return {
+    today: today, firstDay: list[0] || today,
+    todayRows: sum(function (d) { return d === today; }),
+    allRows: sum(function () { return true; }),
+    rangeRows: from && to ? sum(function (d) { return d >= from && d <= to; }) : null
+  };
+}
+
 function usedToday_(state, id, today) {
   return state.used && state.used.day === today ? state.used.count[id] || 0 : 0;
 }
@@ -545,6 +604,7 @@ function tryKeys_(keys, body, today) {
           headers: {'x-goog-api-key': k.key}, muteHttpExceptions: true
         });
       } catch (e) {  // mạng lỗi hoặc Gemini trả lời quá lâu: thử key tiếp, không đánh dấu key này hết lượt
+        recordCall_(k.label, false, 0);
         transient = true;
         reasons[k.label] = 'lỗi mạng hoặc quá lâu (' + e.message + ')';
         continue;
@@ -558,8 +618,10 @@ function tryKeys_(keys, body, today) {
         parsed.paid = k.paid;
         parsed.costUsd = k.paid ? parsed.inputTokens * CONFIG.PRICE_USD_PER_M.input / 1e6 +
           parsed.outputTokens * CONFIG.PRICE_USD_PER_M.output / 1e6 : 0;
+        recordCall_(k.label, true, parsed.costUsd);
         return {result: parsed};
       }
+      recordCall_(k.label, false, 0);
       var c = classifyGeminiError(code, json);
       if (c.kind === 'fatal') throw new Error(c.reason);
       if (c.kind === 'retry') {
@@ -599,6 +661,7 @@ function callGeminiQuiet_(body, models) {
       } catch (e) {
         res = null;  // mạng lỗi hoặc quá lâu: thử lần sau
       }
+      recordCall_(keys[(m + i) % keys.length].label, !!res && res.getResponseCode() === 200, 0);
       if (res && res.getResponseCode() === 200) {
         var key = keys[(m + i) % keys.length];
         if (models[m] === CONFIG.MODEL_FREE) countUse_(keyId_(key.key), today);  // cùng hạn mức với việc chấm

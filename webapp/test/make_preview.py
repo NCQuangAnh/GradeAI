@@ -73,6 +73,12 @@ const MOCK = {{
   listSessions: () => [{{id: 's1', name: 'NGÀY 22/09/26', label: '22/09/26', photos: {len(photos)}, hasKey: true, sheetUrl: '#'}},
                        {{id: 's0', name: 'NGÀY 19/9', label: '19/09/26', photos: 13, hasKey: true, sheetUrl: ''}}],
   getSessionInfo: () => JSON.parse(JSON.stringify(MOCK_INFO)),
+  usageStats: (from, to) => {{
+    const rows = (k) => [{{label: 'miễn phí #1', paid: false, ok: 40 * k, fail: 3 * k, usd: 0}},
+      {{label: 'miễn phí #2', paid: false, ok: 25 * k, fail: k, usd: 0}},
+      {{label: 'trả phí', paid: true, ok: 2 * k, fail: 0, usd: 0.0006 * k}}];
+    return {{today: '2026-10-01', firstDay: '2026-09-28', todayRows: rows(1), allRows: rows(4), rangeRows: from ? rows(2) : null}};
+  }},
   keyStatus: () => [{{label: 'miễn phí #1', paid: false, ok: true, note: 'sẵn sàng', used: 132}},
                     {{label: 'miễn phí #2', paid: false, ok: false, note: 'hết hạn mức hôm nay (mở lại khoảng 14-15h)'}},
                     {{label: 'trả phí', paid: true, ok: true, note: 'sẵn sàng'}}],

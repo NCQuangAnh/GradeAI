@@ -228,3 +228,8 @@ Kết quả chấm và bảng đang sửa được lưu trong folder buổi (fil
 nên cô và trợ giảng mở trên máy nào cũng thấy cùng kết quả, lỡ tắt trang cũng không mất.
 
 Chi phí Gemini khoảng 50đ một bài, hiện ngay trên web khi chấm.
+
+## Thống kê lượt gọi Gemini
+
+Tab **Thống kê**: số lượt gọi thành công và lỗi của từng key miễn phí, số lượt và tiền của key trả phí, cho
+hôm nay, toàn bộ từ ngày bắt đầu ghi, và khoảng ngày tự chọn. Số liệu bắt đầu từ khi triển khai bản có tab này.

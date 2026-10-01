@@ -89,6 +89,11 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   (iPhone giới hạn tổng bộ nhớ canvas); vẽ lỗi thì tải ảnh gốc, không để hàng đợi treo.
 - Xem/xóa ảnh: `listFiles`, `getThumbs`, `getImage`, `deleteFile` (chuyển vào Thùng rác, bỏ kết quả, lập lại bảng).
   Mọi chỗ liệt kê file/folder dùng `liveFiles_` / `searchFolders("trashed = false")` để bỏ qua Thùng rác.
+- Thống kê lượt gọi Gemini (tab Thống kê): `recordCall_` ghi mỗi lượt gọi (thành công/lỗi, USD) theo nhãn key và ngày giờ
+  Việt Nam vào Script Property `USAGE_yyyy-MM`; `usageStats(from, to)` cộng hôm nay, toàn bộ, khoảng ngày cô chọn.
+  Chỉ có số liệu từ khi triển khai bản này.
+- Công thức: em ghi tên công thức bằng ký hiệu "S² =" (so sánh bằng), "S² hơn" (so sánh hơn): GRADE_PROMPT và `viSymbols_`.
+  `dropInvented_` chỉ đối chiếu phần loại word (công thức viết nhiều tầng, chép thành dòng không khớp từng chữ).
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
 - Cảnh báo ảnh mờ/tối: `photoQuality` trong `Index.html` (độ nét < 350, độ sáng < 100). Ngưỡng đo bằng

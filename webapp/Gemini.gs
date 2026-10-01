@@ -82,6 +82,11 @@ var GRADE_PROMPT = [
   '  dấu "+", dấu cách (kể cả chữ viết sát nhau như "sbof"), hoa thường đều không quan trọng; phần trong ngoặc của',
   '  đáp án như "(to sb)" không viết vẫn đúng. Mục đáp án có nghĩa thì điền written_vi và meaning_ok đúng như phần word',
   '  (cùng quy tắc nghĩa chính và chữ viết tắt); em không ghi nghĩa thì written_vi rỗng, meaning_ok = false.',
+  '  Em hay ghi tên công thức ở ĐẦU DÒNG bằng ký hiệu, đó là nghĩa, chép vào written_vi: S = so sánh, viết "S²",',
+  '  "S2", "s^2", "ss"; "S² =" (dấu bằng) = so sánh bằng; "S² hơn", "S² >" = so sánh hơn; "S² nhất" = so sánh nhất.',
+  '  Ví dụ dòng "S² = S1 + tobe + as + adj + as + S2" thì written_vi "S² =", meaning_ok = true với mục so sánh bằng.',
+  '  Đáp án có lựa chọn ("tobe/V", "adj/adv") mà em tách thành nhiều công thức (một dòng tobe + adj, một dòng V + adv)',
+  '  thì vẫn là đúng nếu các dòng gộp lại đủ thành phần; lỗi chép nhỏ một chữ trong công thức ("a" thay "as") không tính.',
   '',
   'TÊN: written_name = tên ghi trên giấy, nguyên văn; giấy không có tên (thường là mặt sau) thì để rỗng, KHÔNG đoán.',
   'matched_name = tên trong DANH SÁCH LỚP ứng với tên đó (tên viết tắt như "K.Vy", "LQMai", chỉ tên cuối vẫn',
@@ -297,11 +302,12 @@ function dropInvented_(items, lines, keyParts, unclear) {
   clean.forEach(function (l) {
     l.split(/[=:;,]/).forEach(function (s) { if (/[a-z]/i.test(s) && !VI_MARKS_.test(s)) segs.push(s.replace(/^\s*\d+\s*[.)]\s*/, '').trim()); });
   });
-  var keyById = {};
-  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
+  var keyById = {}, isWord = {};
+  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; isWord[k.id] = p.kind === 'word'; }); });
   items.forEach(function (it) {
     var w = flat(it.written_en);
-    if (!w) return;
+    // công thức hay viết nhiều tầng (tobe trên, V dưới), chép thành dòng không khớp từng chữ: chỉ đối chiếu phần từ
+    if (!w || !isWord[it.id]) return;
     if (VI_MARKS_.test(it.written_en)) {  // "Recrease = giảm": AI lấy nghĩa tiếng Việt làm chữ tiếng Anh của mục khác
       unclear.push('AI ghi nghĩa "' + it.written_en + '" vào chỗ chữ tiếng Anh của mục ' + (keyById[it.id] || {}).en + ', đã bỏ');
       it.written_en = ''; it.written_vi = ''; it.meaning_ok = false; it.correct = false;
@@ -363,7 +369,8 @@ var MEANING_PROMPT = [
   'ok = false nếu nghĩa thuộc từ khác hoặc hiểu sai, hoặc thiếu một chữ làm đổi nghĩa: từ ghép phải đủ,',
   '"buộc tội" (accuse) khác "buộc" (ép, trói); "chỉ trích" khác "chỉ". Xét chữ dịch chính trước, rồi mới bỏ qua phần phụ.',
   'Phần phụ như "làm gì", "ai", "vì" được bỏ hoặc viết tắt. Viết tắt: lm = làm; lmj, lmg = làm gì; j = gì; ko = không;',
-  'đc = được; xl = xin lỗi; ng = người; vs = với; ae = anh em; ace = anh chị em; ce = chị em.',
+  'đc = được; xl = xin lỗi; ng = người; vs = với; ae = anh em; ace = anh chị em; ce = chị em;',
+  'S², S2, s^2, ss = so sánh ("S² =" = so sánh bằng, "S² hơn" = so sánh hơn, "S² nhất" = so sánh nhất).',
   'Mẫu ghi "anh/chị/em" thì "anh em", "chị em", "ae", "ce" đều đúng (vẫn phải có phần còn lại như "sinh đôi").'
 ].join('\n');
 
