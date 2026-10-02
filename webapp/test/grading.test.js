@@ -538,3 +538,70 @@ test('comparison formulas named with the S² shorthand count as their meaning', 
   assert.ok(!G.viMatches_('S² =', 'So sánh hơn'));
   assert.ok(!G.viMatches_('S² hơn', 'So sánh bằng'));
 });
+
+test('an "=" chain over several lines shares its meaning', () => {
+  const parts = [{ part: 'TỪ VỰNG', kind: 'word', items: [
+    { en: 'big', vi: 'to lớn' }, { en: 'large', vi: 'to lớn' }, { en: 'small', vi: 'nhỏ' }, { en: 'tiny', vi: 'nhỏ xíu' }] }];
+  const r = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['1. big :', '= large : to lớn', '2. small : nhỏ', 'tiny'],
+    items: [
+      { id: '1.1', written_en: 'big', written_vi: '', meaning_ok: false },
+      { id: '1.2', written_en: 'large', written_vi: 'to lớn', meaning_ok: true },
+      { id: '1.3', written_en: 'small', written_vi: 'nhỏ', meaning_ok: true },
+      { id: '1.4', written_en: 'tiny', written_vi: '', meaning_ok: false }] }, parts, []));
+  assert.equal(r.items[0].written_vi, 'to lớn');
+  assert.equal(r.items[0].meaning_ok, true);     // matches the key, accepted by code
+  assert.equal(r.items[3].written_vi, '');       // not in a chain: still no meaning
+  // "=" read as ":" between two English items still makes a chain
+  const r2 = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['- big : large', '= tiny : to lớn'],
+    items: [{ id: '1.1', written_en: 'big', written_vi: 'large', meaning_ok: false }] }, parts, []));
+  assert.equal(r2.items[0].written_vi, 'to lớn');   // the English member Gemini put as meaning is replaced
+});
+
+test('handwritten v read as u is not a spelling error', () => {
+  assert.equal(G.letterErrors('aduise O to V', 'Advise O to V'), 0);
+  assert.equal(G.letterErrors('Aduse O to V', 'Advise O to V'), 1);
+});
+
+test('slash choices and 0 for O are not spelling errors, an extra article is one slip', () => {
+  assert.equal(G.letterErrors('Follow / take advice', 'Take/follow advice'), 0);
+  assert.equal(G.letterErrors('take / follow the advice', 'Take/follow advice'), 1);   // extra article = 1 slip
+  assert.equal(G.letterErrors('take/follow the advise', 'Take/follow advice'), 2);
+  assert.equal(G.letterErrors('follow advice', 'Take/follow advice'), 0);
+  assert.equal(G.letterErrors('advise 0 to V', 'Advise O to V'), 0);
+  assert.equal(G.letterErrors('do laundry', 'do the laundry'), 3);   // a missing article still counts
+});
+
+test('meanings: one right meaning among several, "ln" read for "lm"', () => {
+  const parts = [{ part: 'TỪ VỰNG', kind: 'word', items: [
+    { en: 'tired', vi: 'mệt mỏi, kiệt sức' }, { en: 'take care of', vi: 'làm theo lời mẹ' }] }];
+  const r = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [], lines: [],
+    items: [{ id: '1.1', written_en: 'tired', written_vi: 'buồn ngủ, mệt mỏi', meaning_ok: false },
+            { id: '1.2', written_en: 'take care of', written_vi: 'ln theo lời mẹ', meaning_ok: false }] }, parts, []));
+  assert.equal(r.items[0].meaning_ok, true);
+  assert.equal(r.items[1].meaning_ok, true);
+});
+
+test('"a -> b : x -> y" filed into one item is split into both items', () => {
+  const parts = [{ part: 'TỪ VỰNG', kind: 'word', items: [{ en: 'decide', vi: 'quyết định' }, { en: 'decision', vi: 'sự quyết định' }] }];
+  const r = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [], lines: [],
+    items: [{ id: '1.1', written_en: 'decide -> decision', written_vi: 'quyết định -> sự quyết định', meaning_ok: true },
+            { id: '1.2', written_en: '', written_vi: '', meaning_ok: false }] }, parts, []));
+  assert.deepEqual(r.items.map((it) => [it.written_en, it.written_vi, it.meaning_ok]),
+    [['decide', 'quyết định', true], ['decision', 'sự quyết định', true]]);
+});
+
+test('chains: a meaning-less "A = B" line continues on the next line; a crossed member keeps the meaning', () => {
+  const parts = [{ part: 'TỪ VỰNG', kind: 'word', items: [
+    { en: 'big', vi: 'to lớn' }, { en: 'large', vi: 'to lớn' }, { en: 'huge', vi: 'to lớn' }] }];
+  const r = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['- big = large', '- huge : to lớn'],
+    items: [{ id: '1.1', written_en: 'big', written_vi: '', meaning_ok: false },
+            { id: '1.2', written_en: 'large', written_vi: '', meaning_ok: false }] }, parts, []));
+  assert.deepEqual(r.items.slice(0, 2).map((it) => it.meaning_ok), [true, true]);
+  const c = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
+    lines: ['Vy large', '1. big = ~~large~~ : to', 'lớn'],
+    items: [{ id: '1.2', written_en: 'large', written_vi: '', meaning_ok: false }] }, parts, []));
+  assert.equal(c.items[1].meaning_ok, true);
+});

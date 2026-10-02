@@ -96,6 +96,11 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   thống kê cũ ghi "miễn phí #n" được tính vào tên của key thứ n.
 - Công thức: em ghi tên công thức bằng ký hiệu "S² =" (so sánh bằng), "S² hơn" (so sánh hơn): GRADE_PROMPT và `viSymbols_`.
   `dropInvented_` chỉ đối chiếu phần loại word (công thức viết nhiều tầng, chép thành dòng không khớp từng chữ).
+- Đối chiếu theo `lines` (TA8.1 27/9): `shareChainMeanings_` ghép chuỗi "=" qua nhiều dòng (dòng bắt đầu "=", dòng trên
+  kết thúc "=", dòng chỉ có chữ tiếng Anh chưa nghĩa nối dòng có nghĩa, nghĩa tràn dòng, chữ bị gạch trong chuỗi) rồi cho
+  mục trống nghĩa dùng nghĩa của chuỗi (vẫn xét lại); `splitArrows_` tách "a -> b : x -> y". Chính tả: "Take/follow" là
+  lựa chọn (`slashChoices_`), mạo từ thừa = 1 lỗi, số 0 đứng riêng = O, chữ v/u như nhau (`sameLetter_`). Nghĩa: một nghĩa
+  khớp là được, "ln" = lm, tr = ch và x = s (`viSpell_`).
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
 - Cảnh báo ảnh mờ/tối: `photoQuality` trong `Index.html` (độ nét < 350, độ sáng < 100). Ngưỡng đo bằng

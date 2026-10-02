@@ -37,6 +37,9 @@ var GRADE_PROMPT = [
   'Chữ bị gạch, gạch chéo, tô đen hoặc viết đè ghi trong lines giữa ~~ ~~ ("Reduce = decrease : ~~tăn~~ giảm").',
   'Chữ viết chèn nhỏ phía trên dòng (thường có mũi tên hoặc dấu ^ chỉ chỗ chèn, hay viết thay cho chữ bị gạch bên',
   'dưới) là một phần của dòng đó: chép vào đúng chỗ chèn ("~~reuse~~ reduce : giảm", "increase : tăng").',
+  'Chữ viết ở lề hoặc chỗ trống có mũi tên chỉ vào một dòng thì chép vào CUỐI dòng mũi tên chỉ tới, không phải dòng',
+  'nằm ngang với nó. Ký hiệu đầu dòng chép đúng như trên giấy: "=" là "=", "-" là "-" (dòng "= big" nối tiếp dòng trên).',
+  'Chữ viết tắt "lm" (làm) hay trông như "ln", "im": chép là "lm".',
   'TUYỆT ĐỐI KHÔNG tự sửa lỗi chính tả: em viết "bellow" thì chép "bellow", không phải "below".',
   'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại',
   '(ví dụ "bố m̶e̶ chồng/vợ" thì chép "bố chồng/vợ"). Nghĩa có chữ bị gạch hoặc tô rồi viết chữ khác cạnh đó',
@@ -60,14 +63,15 @@ var GRADE_PROMPT = [
   'BƯỚC 3 - CHẤM:',
   '- Phần loại word (từ, cụm từ, cấu trúc kèm nghĩa): written_en = phần tiếng Anh em viết (nguyên văn, bỏ nhãn',
   '  em tự thêm ở đầu dòng như số thứ tự hay "O :" của OSASCOMP), written_vi = nghĩa em viết (kể cả nghĩa trong ngoặc).',
-  '  meaning_ok = true nếu nghĩa tiếng Việt đúng nghĩa của mục (không cần giống chữ đáp án, lỗi dấu nhỏ không sao). Thiếu nghĩa hoặc sai nghĩa là false.',
+  '  meaning_ok = true nếu nghĩa tiếng Việt đúng nghĩa của mục (không cần giống chữ đáp án; lỗi dấu, lỗi chính tả tiếng Việt',
+  '  như ch/tr, s/x, l/n, d/gi không sao: "tập chung" = tập trung). Thiếu nghĩa hoặc sai nghĩa là false.',
   '  Phần nghĩa chính (chữ dịch động từ/danh từ tiếng Anh) phải đủ và đúng: "buộc" thay cho "buộc tội",',
   '  "chỉ định" thay cho "chỉ trích" là SAI. Phần phụ đi kèm như "làm gì", "ai", "vì", "điều gì" được viết tắt.',
   '  Nghĩa trong đáp án chỉ là MỘT cách dịch: nghĩa khác mà vẫn đúng với từ tiếng Anh là đúng (brother-in-law:',
   '  anh/em rể, anh/em chồng, anh/em vợ; sister-in-law: chị/em dâu, chị/em chồng, chị/em vợ). Sai là khi nghĩa',
   '  thuộc từ khác (sister-in-law : con dâu), thiếu phần chính hoặc hiểu sai từ. Nghĩa nói về một việc khác dù có',
   '  chung chữ cũng là sai: leftover : "lãng phí đồ ăn" là SAI (leftover là đồ ăn thừa, không phải việc lãng phí).',
-  '  Chữ viết tắt quen dùng hiểu như chữ đầy đủ: lm = làm; lmj, lmg, lj = làm gì; j = gì; ko, k, hk = không;',
+  '  Chữ viết tắt quen dùng hiểu như chữ đầy đủ: lm (hay bị đọc thành ln) = làm; lmj, lmg, lj = làm gì; j = gì; ko, k, hk = không;',
   '  đc = được; ng = người; vs = với; xl = xin lỗi; cx = cũng; mn = mọi người; ntn = như thế nào; vd = ví dụ;',
   '  ae = anh em; ace = anh chị em; ce = chị em. Đáp án ghi "anh/chị/em" thì em viết "anh em", "chị em", "ae",',
   '  "anhem", "ce" đều đúng (vẫn phải có phần còn lại như "sinh đôi", "ruột").',
@@ -266,6 +270,8 @@ function normalizeGrade(data, keyParts, roster) {
   var unclear = (data.unclear || []).slice(), prepared = prepareKey(keyParts);
   var lines = (data.lines || []).map(function (l) { return String(l || ''); });
   dropInvented_(items, lines, prepared, unclear);
+  splitArrows_(items, prepared, unclear);
+  shareChainMeanings_(items, lines, prepared, unclear);
   realignLines_(items, prepared, unclear);
   acceptKnownMeanings_(items, prepared);
   var written = String(data.written_name || '').trim();
@@ -291,6 +297,119 @@ function normalizeGrade(data, keyParts, roster) {
  * Không có mà một cụm trong lines gần giống (sai ≤ 2 chữ, chưa mục nào dùng) thì AI đã tự sửa chính tả khi điền:
  * lấy cụm trong lines. Không có cụm nào thì AI tự thêm (thường lấy chữ đáp án cho mục em không viết): bỏ đi.
  */
+/**
+ * "discuss -> discussion : thảo luận -> buổi thảo luận": AI ghép cả hai từ vào một mục. Tách theo mũi tên, mỗi từ về
+ * mục của nó (mục đó đang trống), nghĩa ghép theo thứ tự; nghĩa được xét lại sau đó.
+ */
+function splitArrows_(items, keyParts, unclear) {
+  var ARROW = /\s*(?:->|=>|=\)|→|⇒)\s*/;
+  var keyById = {}, words = [], byId = {};
+  keyParts.forEach(function (p) {
+    p.items.forEach(function (k) { keyById[k.id] = k; if (p.kind === 'word') words.push(k.id); });
+  });
+  items.forEach(function (it) { byId[it.id] = it; });
+  items.forEach(function (it) {
+    if (words.indexOf(it.id) < 0 || !ARROW.test(it.written_en || '')) return;
+    var ens = it.written_en.split(ARROW).filter(function (s) { return s.trim(); });
+    var vis = String(it.written_vi || '').split(ARROW).filter(function (s) { return s.trim(); });
+    if (ens.length < 2) return;
+    var orig = it.written_en;
+    var placed = ens.map(function (en, i) {
+      var best = null, bestErr = 3;
+      words.forEach(function (id) {
+        var e = letterErrors(en, keyById[id].en);
+        if (e < bestErr && (id === it.id || !byId[id].written_en)) { bestErr = e; best = id; }
+      });
+      var vi = vis.length === ens.length ? vis[i] : (vis.length === 1 ? vis[0] : '');  // một nghĩa chung cho cả cặp
+      return best && {id: best, en: en.trim(), vi: vi.trim()};
+    });
+    if (placed.some(function (x) { return !x; })) return;
+    var ids = placed.map(function (x) { return x.id; });
+    if (ids.some(function (id, i) { return ids.indexOf(id) !== i; })) return;
+    if (ids.indexOf(it.id) < 0) { it.written_en = ''; it.written_vi = ''; it.meaning_ok = false; }
+    placed.forEach(function (x) {
+      var t = byId[x.id];
+      t.written_en = x.en; t.written_vi = x.vi;
+      t.meaning_ok = false; t.correct = false;  // nghĩa xét lại (acceptKnownMeanings_, meaningChecks)
+    });
+    unclear.push('dòng "' + orig + '" có mũi tên, đã tách thành ' +
+                 placed.map(function (x) { return '"' + x.en + '"'; }).join(', '));
+  });
+}
+
+/**
+ * Chuỗi từ nối bằng "=" dùng chung một nghĩa, kể cả khi chuỗi trải nhiều dòng: dòng bắt đầu bằng "=" (hoặc dòng trên
+ * kết thúc bằng "=") nối tiếp dòng trên ("focus on : tập trung" / "= pay attention to :"). Mục có chữ tiếng Anh mà
+ * AI để trống nghĩa thì lấy nghĩa của chuỗi; nghĩa đó vẫn được xét lại (acceptKnownMeanings_, meaningChecks).
+ */
+function shareChainMeanings_(items, lines, keyParts, unclear) {
+  if (!lines.length) return;
+  var flat = function (s) { return normLetters(stripAccents(s)); };
+  var keyById = {}, isWord = {}, keyEns = [];
+  keyParts.forEach(function (p) {
+    p.items.forEach(function (k) { keyById[k.id] = k; isWord[k.id] = p.kind === 'word'; keyEns.push(k.en); });
+  });
+  var looksEnglish = function (s) {  // chữ sau ":" mà là một mục tiếng Anh của đáp án ("Focus on : pay attention to")
+    return !VI_MARKS_.test(s) && keyEns.some(function (en) { return letterErrors(s, en) <= 1; });
+  };
+  var parse = function (g) {
+    g.en = []; g.vi = [];
+    g.text.split('=').forEach(function (chunk) {
+      var bits = chunk.split(':');
+      if (bits[0].trim()) g.en.push(bits[0].trim());
+      bits.slice(1).forEach(function (b) {
+        b = b.trim();
+        if (!b) return;
+        if (looksEnglish(b)) g.en.push(b); else g.vi.push(b);
+      });
+    });
+  };
+  var groups = [];
+  lines.forEach(function (raw) {
+    var l = raw.replace(/~~[^~]*~~/g, ' ').replace(/^\s*(\d+\s*[.)]|[-•+*])\s*/, '').trim();
+    if (!l) return;
+    var prev = groups[groups.length - 1];
+    // nghĩa viết tràn xuống dòng dưới ("tập" / "trung"): dòng chỉ có chữ tiếng Việt, không có ":" hay "="
+    if (prev && !/[:=]/.test(l) && !looksEnglish(l) &&
+        (VI_MARKS_.test(l) || (prev.vi.length && l.split(/\s+/).length <= 2))) {
+      prev.text += ' ' + l;
+      parse(prev);
+      return;
+    }
+    // nối dòng trên: dòng bắt đầu bằng "=" (không phải mũi tên "=>", "=)"), dòng trên kết thúc bằng "=", hoặc dòng trên
+    // chỉ có các chữ tiếng Anh nối nhau chưa có nghĩa và dòng này có nghĩa ("Focus on = pay attention to" rồi
+    // "concentrate on : tập trung")
+    if (prev && (/^=(?![>)])/.test(l) || /=\s*$/.test(prev.text) ||
+        (!prev.vi.length && prev.en.length > 1 && /:/.test(l)))) {
+      prev.text = prev.text.replace(/\s*=\s*$/, '') + ' = ' + l.replace(/^=\s*/, '');
+    } else {
+      groups.push({text: l, crossed: []});
+    }
+    var g = groups[groups.length - 1];
+    parse(g);
+    // chữ tiếng Anh bị gạch trong chuỗi (em gạch rồi viết lại chỗ khác) vẫn dùng nghĩa của chuỗi
+    (raw.match(/~~[^~]*~~/g) || []).forEach(function (x) {
+      x = x.replace(/~/g, '').trim();
+      if (looksEnglish(x)) g.crossed.push(x);
+    });
+  });
+  items.forEach(function (it) {
+    if (!isWord[it.id] || !it.written_en) return;
+    // "Focus on : pay attention to": AI lấy chữ tiếng Anh cùng chuỗi làm nghĩa, coi như chưa có nghĩa
+    if (looksEnglish(String(it.written_vi || '').trim())) { it.written_vi = ''; it.meaning_ok = false; }
+    if (String(it.written_vi || '').trim()) return;
+    var w = flat(it.written_en);
+    var g = groups.filter(function (x) {
+      return x.vi.length && (x.en.length > 1 && x.en.some(function (e) { return flat(e) === w; }) ||
+        x.crossed.some(function (e) { return flat(e) === w; }));
+    })[0];
+    if (!g) return;
+    it.written_vi = g.vi.join(', ');
+    it.meaning_ok = false;  // xét lại: acceptKnownMeanings_ nhận ngay nếu khớp đáp án, không thì hỏi lại nghĩa
+    unclear.push('mục ' + keyById[it.id].en + ': lấy nghĩa chung của chuỗi "=" ("' + it.written_vi + '")');
+  });
+}
+
 var VI_MARKS_ = /[àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]/i;
 
 function dropInvented_(items, lines, keyParts, unclear) {
@@ -368,7 +487,8 @@ var MEANING_PROMPT = [
   'ok = true nếu nghĩa em viết là MỘT nghĩa đúng của từ tiếng Anh, dù khác cách dịch mẫu (cách dịch mẫu chỉ để tham khảo).',
   'ok = false nếu nghĩa thuộc từ khác hoặc hiểu sai, hoặc thiếu một chữ làm đổi nghĩa: từ ghép phải đủ,',
   '"buộc tội" (accuse) khác "buộc" (ép, trói); "chỉ trích" khác "chỉ". Xét chữ dịch chính trước, rồi mới bỏ qua phần phụ.',
-  'Phần phụ như "làm gì", "ai", "vì" được bỏ hoặc viết tắt. Viết tắt: lm = làm; lmj, lmg = làm gì; j = gì; ko = không;',
+  'Lỗi chính tả tiếng Việt (ch/tr, s/x, l/n, d/gi, thiếu dấu: "tập chung" = tập trung) không tính là sai nghĩa.',
+  'Phần phụ như "làm gì", "ai", "vì" được bỏ hoặc viết tắt. Viết tắt: lm (hay bị đọc thành ln) = làm; lmj, lmg = làm gì; j = gì; ko = không;',
   'đc = được; xl = xin lỗi; ng = người; vs = với; ae = anh em; ace = anh chị em; ce = chị em;',
   'S², S2, s^2, ss = so sánh ("S² =" = so sánh bằng, "S² hơn" = so sánh hơn, "S² nhất" = so sánh nhất).',
   'Mẫu ghi "anh/chị/em" thì "anh em", "chị em", "ae", "ce" đều đúng (vẫn phải có phần còn lại như "sinh đôi").'

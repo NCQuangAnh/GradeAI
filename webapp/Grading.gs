@@ -34,7 +34,8 @@ function stripAccents(s) {
  * Chữ V viết tay hay bị đọc thành U hoặc L: "Uing", "ling" đứng riêng cũng là Ving.
  */
 function notationNorm_(s) {
-  var t = ' ' + String(s || '').toLowerCase().replace(/[()\[\]]/g, ' ') + ' ';
+  // "advise 0 to V": số 0 đứng riêng là chữ O
+  var t = ' ' + String(s || '').toLowerCase().replace(/[()\[\]]/g, ' ').replace(/(^|\s)0(?=\s|$)/g, '$1o') + ' ';
   t = t.replace(/(^|[^a-z])(somebody|someone|smb|sb|o)(?=[^a-z]|$)/g, '$1 sb ')
        .replace(/(^|[^a-z])(something|sth)(?=[^a-z]|$)/g, '$1 sth ')
        .replace(/(^|[^a-z])([vul]\s*[-_.]?\s*ing|doing)(?=[^a-z]|$)/g, '$1 ving ');
@@ -54,13 +55,29 @@ function withSingular_(list) {
 }
 
 /** Phần trong ngoặc của đáp án là tùy chọn: "apologize (to sb) for + V-ing" nhận cả khi không viết "to sb". */
+/** "Take/follow advice" = "take advice" hoặc "follow advice": mỗi chữ nối bằng "/" là một lựa chọn. */
+function slashChoices_(s) {
+  var out = [s], m = /([A-Za-z][\w'-]*)(?:\s*\/\s*[A-Za-z][\w'-]*)+/.exec(s);
+  if (!m) return out;
+  m[0].split('/').forEach(function (w) {
+    slashChoices_(s.slice(0, m.index) + w.trim() + s.slice(m.index + m[0].length)).forEach(function (x) { out.push(x); });
+  });
+  return out;
+}
+
 function keyForms_(key) {
-  var raw = String(key || ''), forms = [];
-  withSingular_([raw, raw.replace(/\([^)]*\)/g, ' ')]).forEach(function (s) {
+  var raw = String(key || ''), forms = [], base = [raw, raw.replace(/\([^)]*\)/g, ' ')];
+  base.slice().forEach(function (s) { slashChoices_(s).slice(1).forEach(function (x) { base.push(x); }); });
+  withSingular_(base).forEach(function (s) {
     var f = notationNorm_(s);
     if (forms.indexOf(f) < 0) forms.push(f);
   });
   return forms;
+}
+
+/** Chữ v viết tay hay trông như u ("aduise" = "advise"): coi là cùng một chữ cái. */
+function sameLetter_(x, y) {
+  return x === y || (x === 'u' && y === 'v') || (x === 'v' && y === 'u');
 }
 
 function editDistance_(a, b) {
@@ -71,7 +88,7 @@ function editDistance_(a, b) {
   }
   for (i = 1; i <= a.length; i++) {
     for (j = 1; j <= b.length; j++) {
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (sameLetter_(a[i - 1], b[j - 1]) ? 0 : 1));
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
         d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
       }
@@ -92,6 +109,13 @@ function writtenForms_(written) {
   var s = String(written || '').replace(POS_TAG_, ' ').replace(POS_TAG_MISREAD_, '$1 ').trim();
   var bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
   var raw = bare === s ? [s] : [s, bare];
+  raw.slice().forEach(function (r) { slashChoices_(r).slice(1).forEach(function (x) { raw.push(x); }); });
+  // mạo từ em thêm vào ("take the advice" khi đáp án là "take advice") tính 1 lỗi, như sai 1 chữ cái
+  var withArticle = [];
+  raw.slice().forEach(function (r) {
+    var no = r.replace(/(^|\s)(the|a|an)(?=\s)/gi, ' ').trim();
+    if (no !== r) { raw.push(no); withArticle.push(no); }
+  });
   // "waste (n) = waste (v)": AI chép cả chuỗi từ nối bằng "=" vào một mục, so từng từ trong chuỗi
   if (/[=\/]/.test(s)) s.split(/[=\/]/).forEach(function (w) { if (w.trim()) raw.push(w.trim()); });
   // chữ viết dở rồi viết lại ngay bằng chữ cùng chữ cái đầu ("Do the lunc laundry"): thử bỏ chữ viết dở
@@ -108,14 +132,17 @@ function writtenForms_(written) {
       if (f.slice(n, 2 * n) === f.slice(0, n)) forms.push(f.slice(n));
     }
   });
+  forms.extra = {};  // dạng phải bỏ mạo từ mới có: cộng 1 lỗi
+  withSingular_(withArticle).map(notationNorm_).forEach(function (f) { forms.extra[f] = 1; });
   return forms;
 }
 
 function bestForm_(written, key) {
   var best = null, bestW = null, dist = Infinity;
-  writtenForms_(written).forEach(function (w) {
+  var ws = writtenForms_(written);
+  ws.forEach(function (w) {
     keyForms_(key).forEach(function (f) {
-      var e = editDistance_(w, f);
+      var e = editDistance_(w, f) + (ws.extra[w] || 0);
       if (e < dist) { dist = e; best = f; bestW = w; }
     });
   });
@@ -229,7 +256,7 @@ function matchNameExact_(written, roster) {
 }
 
 /** Chữ viết tắt tiếng Việt học sinh hay dùng (viết không dấu), đổi ra chữ đầy đủ trước khi so nghĩa. */
-var VI_ABBR = {ae: 'anh em', ace: 'anh chi em', ce: 'chi em', ac: 'anh chi', lm: 'lam', lmj: 'lam gi', lmg: 'lam gi',
+var VI_ABBR = {ln: 'lam' /* "lm" viết tay hay bị đọc thành "ln" */, ae: 'anh em', ace: 'anh chi em', ce: 'chi em', ac: 'anh chi', lm: 'lam', lmj: 'lam gi', lmg: 'lam gi',
                lj: 'lam gi', j: 'gi', ko: 'khong', k: 'khong', hk: 'khong', dc: 'duoc', ng: 'nguoi', vs: 'voi',
                xl: 'xin loi', cx: 'cung', mn: 'moi nguoi', ntn: 'nhu the nao', vd: 'vi du'};
 
@@ -251,10 +278,13 @@ function viSymbols_(s) {
     .replace(/=/g, ' bằng ').replace(/>/g, ' hơn ');
 }
 
+/** Lỗi chính tả tiếng Việt hay gặp không tính khi so nghĩa: tr = ch, x = s ("tập chung" = "tập trung"). */
+function viSpell_(s) { return String(s).replace(/tr/g, 'ch').replace(/x/g, 's'); }
+
 function viLetters_(s) {
   var words = [];
   stripAccents(viSymbols_(s).toLowerCase()).replace(/\([^)]*\)/g, ' ').split(/[^a-z]+/).forEach(function (w) {
-    (VI_ABBR[w] || w).split(' ').forEach(function (x) { if (x) words.push(x); });
+    (VI_ABBR[w] || w).split(' ').forEach(function (x) { if (x) words.push(viSpell_(x)); });
   });
   return kinJoin_(words);
 }
@@ -268,7 +298,7 @@ function viLetters_(s) {
 function viMatches_(written, key) {
   var w = viLetters_(written);
   if (!w) return false;
-  var units = stripAccents(String(key || '').toLowerCase()).replace(/\([^)]*\)/g, ' ')
+  var units = viSpell_(stripAccents(String(key || '').toLowerCase())).replace(/\([^)]*\)/g, ' ')
     .replace(/\s*\/\s*/g, '/').split(/[^a-z\/]+/).filter(String);
   if (!units.length) return false;
   var parts = units.map(function (u) {
@@ -287,7 +317,12 @@ function acceptKnownMeanings_(items, keyParts) {
   keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; }); });
   items.forEach(function (it) {
     var k = keyById[it.id];
-    if (k && !it.meaning_ok && String(it.written_vi || '').trim() && viMatches_(it.written_vi, k.vi)) it.meaning_ok = true;
+    if (!k || it.meaning_ok || !String(it.written_vi || '').trim()) return;
+    // em viết nhiều nghĩa ("lo lắng, áp lực"): một nghĩa khớp một nghĩa của đáp án là được
+    var mine = String(it.written_vi).split(/[,;]/), keys = String(k.vi).split(/[,;]/);
+    if (viMatches_(it.written_vi, k.vi) || mine.some(function (w) {
+      return w.trim() && keys.some(function (kv) { return kv.trim() && viMatches_(w, kv); });
+    })) it.meaning_ok = true;
   });
 }
 
