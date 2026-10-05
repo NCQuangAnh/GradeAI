@@ -111,10 +111,12 @@
   .vbar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; color: #fff; }
   .vbar #vName { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vbar button { flex: 1; }
-  .vimg { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; }
-  .vimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .vimg.zoom { display: block; }
-  .vimg.zoom img { max-width: none; max-height: none; width: 220%; }
+  .vimg { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; touch-action: none;
+    min-height: 0; }
+  .vimg img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center;
+    user-select: none; -webkit-user-drag: none; cursor: zoom-in; }
+  .vimg.zoom img { cursor: grab; }
+  .vimg.zoom.drag img { cursor: grabbing; }
   #vMsg { color: #c9ced8; font-size: 13px; text-align: center; margin: 4px 12px; min-height: 18px; }
 
   /* thông báo: vàng = cần xem, đỏ = lỗi */
@@ -515,11 +517,13 @@ function toJpegB64(file, maxSide, quality) {
       let c, p;
       try {
         const s = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * s), h = Math.round(img.height * s), turn = w > h;  // ảnh ngang: xoay thành dọc
         c = document.createElement('canvas');
-        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.width = turn ? h : w; c.height = turn ? w : h;
         const cx = c.getContext('2d');
         cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
-        cx.drawImage(img, 0, 0, c.width, c.height);
+        if (turn) { cx.translate(c.width, 0); cx.rotate(Math.PI / 2); }  // xoay 90 độ theo chiều kim đồng hồ
+        cx.drawImage(img, 0, 0, w, h);
         URL.revokeObjectURL(url);
         p = document.createElement('canvas'); const ps = Math.min(1, 320 / Math.max(c.width, c.height));  // ảnh nhỏ để hiện trong lưới
         p.width = Math.round(c.width * ps); p.height = Math.round(c.height * ps);
@@ -704,14 +708,18 @@ async function showViewerImage() {
   $('vPrev').disabled = V.idx === 0; $('vNext').disabled = V.idx === V.files.length - 1;
   resetDel();
   const img = $('vImg');
-  $('vImgWrap').classList.remove('zoom');
+  zoomTo(1);
   img.onerror = null; img.onload = null;
   img.src = V.thumbs[f.id] || '';
   $('vMsg').textContent = 'Đang tải ảnh...';
   try {
     if (!V.images[f.id]) keepImage(f.id, (await run('getImage', f.id)).src);
     if (V.files[V.idx] !== f) return;  // cô đã chuyển sang ảnh khác
-    img.onload = () => { $('vMsg').textContent = 'Chạm vào ảnh để phóng to / thu nhỏ'; };
+    img.onload = () => {
+      $('vMsg').textContent = matchMedia('(pointer: fine)').matches
+        ? 'Cuộn chuột để phóng to / thu nhỏ, giữ chuột kéo để di chuyển, bấm ra ngoài ảnh để đóng'
+        : 'Chạm vào ảnh hoặc dùng 2 ngón để phóng to, kéo để di chuyển, chạm ra ngoài ảnh để đóng';
+    };
     img.onerror = () => {
       img.onerror = null; img.src = V.thumbs[f.id] || '';
       $('vMsg').innerHTML = `Máy này không hiện được ảnh gốc (HEIC), đang xem ảnh nhỏ.
@@ -762,13 +770,80 @@ $('vClose').onclick = closeViewer;
 $('vPrev').onclick = () => { if (V.idx > 0) { V.idx--; showViewerImage(); } };
 $('vNext').onclick = () => { if (V.idx < V.files.length - 1) { V.idx++; showViewerImage(); } };
 $('vDel').onclick = deleteCurrent;
-$('vImg').onclick = () => $('vImgWrap').classList.toggle('zoom');
-let touchX = null;  // vuốt trái/phải để chuyển ảnh
-$('vImgWrap').addEventListener('touchstart', (e) => { touchX = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive: true });
-$('vImgWrap').addEventListener('touchend', (e) => {
-  if (touchX === null || $('vImgWrap').classList.contains('zoom')) return;
-  const dx = e.changedTouches[0].clientX - touchX; touchX = null;
-  if (dx > 60) $('vPrev').click(); else if (dx < -60) $('vNext').click();
+// Phóng to / thu nhỏ và kéo ảnh: cuộn chuột, giữ chuột kéo; trên điện thoại chạm, 2 ngón, kéo một ngón.
+const Z = { s: 1, x: 0, y: 0, pts: new Map(), start: null, pinch: null, moved: false };
+function zoomTo(s, cx, cy) {  // cx, cy: điểm giữ nguyên trên màn hình khi phóng (tính từ tâm khung ảnh)
+  const ns = Math.max(1, Math.min(8, s));
+  if (cx !== undefined) { Z.x = cx - (cx - Z.x) * ns / Z.s; Z.y = cy - (cy - Z.y) * ns / Z.s; }
+  Z.s = ns;
+  if (ns === 1) { Z.x = 0; Z.y = 0; }
+  $('vImg').style.transform = `translate(${Z.x}px, ${Z.y}px) scale(${Z.s})`;
+  $('vImgWrap').classList.toggle('zoom', ns > 1);
+}
+function fromCenter(e) {
+  const r = $('vImgWrap').getBoundingClientRect();
+  return [e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2];
+}
+$('vImgWrap').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const [cx, cy] = fromCenter(e);
+  zoomTo(Z.s * Math.exp(-e.deltaY * 0.0015), cx, cy);
+}, { passive: false });
+$('vImgWrap').addEventListener('pointerdown', (e) => {
+  $('vImgWrap').setPointerCapture(e.pointerId);
+  Z.pts.set(e.pointerId, [e.clientX, e.clientY]);
+  Z.moved = false;
+  if (Z.pts.size === 1) Z.start = { px: e.clientX, py: e.clientY, x: Z.x, y: Z.y, onImg: e.target === $('vImg') };
+  if (Z.pts.size === 2) {
+    const [a, b] = [...Z.pts.values()];
+    Z.pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), s: Z.s };
+  }
+});
+$('vImgWrap').addEventListener('pointermove', (e) => {
+  if (!Z.pts.has(e.pointerId)) return;
+  Z.pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (Z.pts.size === 2 && Z.pinch) {  // 2 ngón: phóng to quanh điểm giữa
+    const [a, b] = [...Z.pts.values()];
+    const [cx, cy] = fromCenter({ clientX: (a[0] + b[0]) / 2, clientY: (a[1] + b[1]) / 2 });
+    zoomTo(Z.pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / Z.pinch.d, cx, cy);
+    Z.moved = true;
+    return;
+  }
+  const dx = e.clientX - Z.start.px, dy = e.clientY - Z.start.py;
+  if (Math.abs(dx) + Math.abs(dy) > 6) Z.moved = true;
+  if (Z.s > 1 && Z.moved) {  // đang phóng to: kéo ảnh
+    $('vImgWrap').classList.add('drag');
+    Z.x = Z.start.x + dx; Z.y = Z.start.y + dy;
+    $('vImg').style.transform = `translate(${Z.x}px, ${Z.y}px) scale(${Z.s})`;
+  }
+});
+function pointerEnd(e) {
+  if (!Z.pts.has(e.pointerId)) return;
+  Z.pts.delete(e.pointerId);
+  $('vImgWrap').classList.remove('drag');
+  if (Z.pts.size) { Z.pinch = null; return; }
+  const st = Z.start; Z.start = null;
+  if (!st || Z.pinch) { Z.pinch = null; return; }
+  const dx = e.clientX - st.px;
+  if (!Z.moved) {  // chạm / bấm: vào ảnh thì phóng to - thu nhỏ, ra ngoài ảnh thì đóng
+    const inImg = e.target === $('vImg') || st.onImg;
+    if (!inImg) return closeViewer();
+    if (Z.s > 1) zoomTo(1); else { const [cx, cy] = fromCenter(e); zoomTo(2.5, cx, cy); }
+  } else if (Z.s === 1 && Math.abs(dx) > 60) {  // chưa phóng to: vuốt trái / phải để chuyển ảnh
+    if (dx > 0) $('vPrev').click(); else $('vNext').click();
+  }
+}
+$('vImgWrap').addEventListener('pointerup', pointerEnd);
+$('vImgWrap').addEventListener('pointercancel', (e) => { Z.moved = true; pointerEnd(e); });
+// thanh trên, dòng chữ và thanh nút dưới cũng là "ngoài ảnh": bấm vào chỗ trống ở đó thì đóng
+$('viewer').addEventListener('click', (e) => {
+  if (e.target === $('viewer') || e.target.classList.contains('vbar') || e.target.id === 'vMsg') closeViewer();
+});
+document.addEventListener('keydown', (e) => {
+  if ($('viewer').hidden) return;
+  if (e.key === 'Escape') closeViewer();
+  else if (e.key === 'ArrowLeft') $('vPrev').click();
+  else if (e.key === 'ArrowRight') $('vNext').click();
 });
 
 // ---------- grading ----------

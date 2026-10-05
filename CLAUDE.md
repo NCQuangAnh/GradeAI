@@ -87,6 +87,9 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   `da_xoa_...` (web bỏ qua). Xuất lại ghi đè `cham_bai.png` qua Drive REST (`overwriteFile_`, chỉ cần quyền sửa).
 - Tải nhiều ảnh (`handleFiles`): thu nhỏ ảnh kế tiếp khi ảnh trước tải xong, canvas thu về 0x0 sau khi dùng
   (iPhone giới hạn tổng bộ nhớ canvas); vẽ lỗi thì tải ảnh gốc, không để hàng đợi treo.
+- Ảnh ngang được xoay thành dọc trong `toJpegB64` (90 độ theo chiều kim đồng hồ, cả ảnh bài và đáp án; ảnh HEIC trình duyệt
+  không vẽ được thì tải ảnh gốc, không xoay). Khung xem ảnh: `zoomTo` (transform), cuộn chuột / 2 ngón phóng to, kéo khi
+  phóng to, bấm ra ngoài ảnh hoặc Esc để đóng.
 - Xem/xóa ảnh: `listFiles`, `getThumbs`, `getImage`, `deleteFile` (chuyển vào Thùng rác, bỏ kết quả, lập lại bảng).
   Mọi chỗ liệt kê file/folder dùng `liveFiles_` / `searchFolders("trashed = false")` để bỏ qua Thùng rác.
 - Thống kê lượt gọi Gemini (tab Thống kê): `recordCall_` ghi mỗi lượt gọi (thành công/lỗi, USD) theo nhãn key và ngày giờ

@@ -234,3 +234,11 @@ Chi phí Gemini khoảng 50đ một bài, hiện ngay trên web khi chấm.
 
 Tab **Thống kê**: số lượt gọi thành công và lỗi của từng key miễn phí, số lượt và tiền của key trả phí, cho
 hôm nay, toàn bộ từ ngày bắt đầu ghi, và khoảng ngày tự chọn. Số liệu bắt đầu từ khi triển khai bản có tab này.
+
+## Xem ảnh
+
+- Ảnh chụp ngang được tự xoay thành dọc khi tải lên (xoay 90 độ theo chiều kim đồng hồ).
+- Máy tính: cuộn chuột để phóng to / thu nhỏ, giữ chuột kéo để di chuyển ảnh, bấm vào ảnh để phóng to nhanh,
+  bấm ra ngoài ảnh hoặc phím Esc để đóng, phím mũi tên trái / phải để chuyển ảnh.
+- Điện thoại: chạm vào ảnh hoặc dùng 2 ngón để phóng to, kéo một ngón để di chuyển, vuốt trái / phải để chuyển ảnh
+  (khi chưa phóng to), chạm ra ngoài ảnh để đóng.
