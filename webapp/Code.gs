@@ -17,6 +17,8 @@ var CONFIG = {
   // hỏi lại những nghĩa bị chê (ít chữ, không có ảnh): 3.1-flash-lite trả lời đúng 11/11 câu thử, 3 lần như nhau.
   // Cả web chỉ dùng một mô hình (chốt với cô 28/09/2026).
   MEANING_MODELS: ['gemini-3.1-flash-lite'],
+  // hỏi lại chữ có bị gạch không (ít khi cần, ~30 giây): 3.5-flash thấy được nét gạch mảnh mà 3.1-flash-lite bỏ sót
+  CROSSED_MODELS: ['gemini-3.5-flash', 'gemini-3.1-flash-lite'],
   PRICE_USD_PER_M: {input: 0.25, output: 1.50},  // giá Gemini 3.1 Flash-Lite, xem ngày 27/09/2026
   SHEET_PREFIX: 'Chấm bài',
   IMAGE_NAME: 'cham_bai.png',
@@ -740,8 +742,15 @@ function gradePhoto(sessionId, fileId, keyParts, roster, allowPaid) {
   requireUser_();
   var file = DriveApp.getFileById(fileId);
   keyParts = prepareKey(keyParts);
-  var r = callGemini_(buildGradeRequest(keyParts, roster, imageOf_(fileId)), allowPaid);
+  var photo = imageOf_(fileId);
+  var r = callGemini_(buildGradeRequest(keyParts, roster, photo), allowPaid);
   var out = normalizeGrade(r.data, keyParts, roster);
+  // chữ bị gạch AI không thấy: hỏi lại riêng kèm ảnh (chỉ key miễn phí, lỗi thì giữ kết quả đọc ảnh)
+  var crossed = crossedChecks(out, keyParts);
+  if (crossed.length) {
+    var x = callGeminiQuiet_(buildCrossedRequest(crossed, photo), CONFIG.CROSSED_MODELS);
+    if (x) applyCrossedChecks(out, crossed, x.data);
+  }
   var checks = meaningChecks(out, keyParts);
   if (checks.length) {
     var m = callGeminiQuiet_(buildMeaningRequest(checks), CONFIG.MEANING_MODELS);

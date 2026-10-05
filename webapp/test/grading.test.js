@@ -605,3 +605,17 @@ test('chains: a meaning-less "A = B" line continues on the next line; a crossed 
     items: [{ id: '1.2', written_en: 'large', written_vi: '', meaning_ok: false }] }, parts, []));
   assert.equal(c.items[1].meaning_ok, true);
 });
+
+test('a word that only fits once one word is dropped is asked about as crossed out', () => {
+  const parts = [{ part: 'TỪ VỰNG', kind: 'word', items: [{ en: 'school activities', vi: 'hoạt động ở trường' }, { en: 'go out', vi: 'đi ra ngoài' }] }];
+  const r = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [], lines: [],
+    items: [{ id: '1.1', written_en: 'school sports : activities', written_vi: 'hoạt động ở trường', meaning_ok: true },
+            { id: '1.2', written_en: 'go out', written_vi: 'đi ra ngoài', meaning_ok: true }] }, parts, []));
+  const checks = plain(G.crossedChecks(r, parts));
+  assert.deepEqual(checks.map((c) => [c.id, c.word, c.rest]), [['1.1', 'sports', 'school activities']]);
+  G.applyCrossedChecks(r, checks, [{ id: '1.1. dòng "school sports : activities"', look: 'gạch ngang', crossed: true }]);
+  assert.equal(r.items[0].written_en, 'school activities');
+  const keep = plain(r);
+  G.applyCrossedChecks(keep, checks, [{ id: '1.1', look: 'sạch', crossed: false }]);
+  assert.equal(keep.items[0].written_en, 'school activities');
+});

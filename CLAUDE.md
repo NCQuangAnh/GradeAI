@@ -101,6 +101,10 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   mục trống nghĩa dùng nghĩa của chuỗi (vẫn xét lại); `splitArrows_` tách "a -> b : x -> y". Chính tả: "Take/follow" là
   lựa chọn (`slashChoices_`), mạo từ thừa = 1 lỗi, số 0 đứng riêng = O, chữ v/u như nhau (`sameLetter_`). Nghĩa: một nghĩa
   khớp là được, "ln" = lm, tr = ch và x = s (`viSpell_`).
+- Chữ bị gạch AI bỏ sót ("community ~~service~~ activities"): `crossedChecks` tìm mục word mà bỏ đúng một chữ thì khớp đáp
+  án, `gradePhoto` hỏi lại riêng kèm ảnh (`buildCrossedRequest`, `CONFIG.CROSSED_MODELS` = gemini-3.5-flash rồi 3.1-flash-lite,
+  chỉ key miễn phí, ~30 s, chỉ khi có mục nghi ngờ); chữ được xác nhận bị gạch thì bỏ (`applyCrossedChecks`). 3.1-flash-lite
+  không thấy nét gạch mảnh; 3.5-flash đúng 4/4 ca thử (TA7.2 3/10, TA8.1 27/9).
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
 - Cảnh báo ảnh mờ/tối: `photoQuality` trong `Index.html` (độ nét < 350, độ sáng < 100). Ngưỡng đo bằng

@@ -520,6 +520,73 @@ function buildMeaningRequest(checks) {
   };
 }
 
+/**
+ * Chữ bị gạch mà AI không thấy ("community ~~service~~ activities" chép thành "community service activities"):
+ * mục loại word mà bỏ đúng một chữ thì khớp đáp án (sai tối đa 1 chữ cái), còn giữ nguyên thì sai từ 2 chữ cái.
+ * Những mục này được hỏi lại riêng kèm ảnh: chữ đó trên giấy có bị gạch không (hỏi thẳng một chữ thì AI nhìn kỹ hơn).
+ */
+function crossedChecks(result, keyParts) {
+  var keyById = {};
+  prepareKey(keyParts).forEach(function (p) {
+    if (p.kind === 'word') p.items.forEach(function (k) { keyById[k.id] = k; });
+  });
+  var out = [];
+  (result.items || []).forEach(function (it) {
+    var k = keyById[it.id], w = String(it.written_en || '').trim();
+    if (!k || !w || letterErrors(w, k.en) < 2) return;
+    var toks = w.replace(/[:=]/g, ' ').split(/\s+/).filter(String), best = null, bestErr = 2;
+    toks.forEach(function (t, i) {
+      if (normLetters(t).length < 2) return;
+      var rest = toks.slice(0, i).concat(toks.slice(i + 1)).join(' '), e = letterErrors(rest, k.en);
+      if (e < bestErr) { bestErr = e; best = {id: it.id, line: w, word: t, rest: rest, vi: String(it.written_vi || '')}; }
+    });
+    if (best) out.push(best);
+  });
+  return out;
+}
+
+var CROSSED_PROMPT = [
+  'Ảnh là bài làm viết tay của học sinh. Mỗi mục dưới đây là một dòng em viết và một chữ trong dòng đó.',
+  'Tìm dòng đó trên ảnh, nhìn thật kỹ chữ được hỏi: chữ đó có bị gạch ngang, gạch chéo, tô đen, khoanh xóa hay viết đè',
+  '(tức là em đã bỏ chữ đó) không? crossed = true nếu chữ đó bị gạch/xóa, false nếu chữ đó vẫn là một phần bài làm.',
+  'Trước khi trả lời, ghi vào look nét bút đi qua chữ đó thế nào (có đường kẻ ngang/chéo xuyên qua chữ, nét chồng lên',
+  'chữ, hay chữ sạch như các chữ khác cùng dòng). Một đường kẻ ngang mảnh xuyên qua giữa chữ cũng là gạch.',
+  'Cùng một chữ có thể xuất hiện ở nhiều dòng: chỉ xét đúng dòng được tả (có cả nghĩa em viết ở dòng đó).',
+  'Chỉ trả lời theo những gì thấy trên ảnh.'
+].join('\n');
+
+function buildCrossedRequest(checks, photo) {
+  var list = checks.map(function (c) {
+    return 'mã ' + c.id + ': dòng "' + c.line + (c.vi ? ' : ' + c.vi : '') + '" - chữ "' + c.word + '"';
+  });
+  return {
+    contents: [{role: 'user', parts: [{text: CROSSED_PROMPT + '\n\n' + list.join('\n')}, imagePart_(photo)]}],
+    generationConfig: {responseMimeType: 'application/json', temperature: 0, responseSchema: {
+      type: 'ARRAY', items: {type: 'OBJECT',
+        properties: {id: {type: 'STRING'}, look: {type: 'STRING'}, crossed: {type: 'BOOLEAN'}},
+        required: ['id', 'look', 'crossed'], propertyOrdering: ['id', 'look', 'crossed']}
+    }}
+  };
+}
+
+/** Chữ được xác nhận bị gạch thì bỏ khỏi chữ em viết (chính tả và nghĩa chấm lại theo phần còn lại). */
+function applyCrossedChecks(result, checks, answers) {
+  var crossed = {};
+  (answers || []).forEach(function (a, i) {
+    if (!a || a.crossed !== true) return;
+    var id = (/(\d+\.\d+)/.exec(String(a.id)) || [])[1];  // AI có khi chép cả dòng vào id
+    crossed[id && checks.some(function (c) { return c.id === id; }) ? id : (checks[i] || {}).id] = true;
+  });
+  (checks || []).forEach(function (c) {
+    if (!crossed[c.id]) return;
+    (result.items || []).forEach(function (it) {
+      if (it.id !== c.id) return;
+      it.written_en = c.rest;
+      (result.unclear = result.unclear || []).push('dòng "' + c.line + '": chữ "' + c.word + '" bị gạch, đã bỏ');
+    });
+  });
+}
+
 /** Nhận câu trả lời kiểm tra nghĩa: mục được xác nhận đúng nghĩa thì sửa meaning_ok. */
 function applyMeaningChecks(result, answers) {
   var ok = {};
