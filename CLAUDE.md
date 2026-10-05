@@ -105,6 +105,10 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   án, `gradePhoto` hỏi lại riêng kèm ảnh (`buildCrossedRequest`, `CONFIG.CROSSED_MODELS` = gemini-3.5-flash rồi 3.1-flash-lite,
   chỉ key miễn phí, ~30 s, chỉ khi có mục nghi ngờ); chữ được xác nhận bị gạch thì bỏ (`applyCrossedChecks`). 3.1-flash-lite
   không thấy nét gạch mảnh; 3.5-flash đúng 4/4 ca thử (TA7.2 3/10, TA8.1 27/9).
+- TA9 28/9: "/" giữa cả cụm ("Can't stand/ can't bear") là lựa chọn; em viết nhiều lựa chọn thì MỌI lựa chọn phải đúng
+  (`slashSets_` trong `bestForm_`: "Can't stand / can't get" sai). "not" = "no" ("there's not use"). Mục vắt sang trang sau
+  ("have difficulty / trouble" cuối trang 1, "+ Ving : gặp khó khăn" đầu trang 2) được nối lại (`mergeStudent_`). Dòng tiếng
+  Anh không đánh số, không nghĩa, ngay dưới dòng có nghĩa (từ cùng nghĩa viết chồng) dùng nghĩa dòng trên, vẫn xét lại.
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
 - Cảnh báo ảnh mờ/tối: `photoQuality` trong `Index.html` (độ nét < 350, độ sáng < 100). Ngưỡng đo bằng

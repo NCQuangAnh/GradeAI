@@ -379,8 +379,11 @@ function shareChainMeanings_(items, lines, keyParts, unclear) {
     // nối dòng trên: dòng bắt đầu bằng "=" (không phải mũi tên "=>", "=)"), dòng trên kết thúc bằng "=", hoặc dòng trên
     // chỉ có các chữ tiếng Anh nối nhau chưa có nghĩa và dòng này có nghĩa ("Focus on = pay attention to" rồi
     // "concentrate on : tập trung")
+    // hoặc dòng chỉ có một mục tiếng Anh, không nghĩa, ngay dưới dòng có nghĩa (các từ cùng nghĩa viết chồng nhau,
+    // nghĩa viết giữa hai dòng: "there's no point : vô ích" / "there's no use"); nghĩa vẫn được xét lại cho mục này
     if (prev && (/^=(?![>)])/.test(l) || /=\s*$/.test(prev.text) ||
-        (!prev.vi.length && prev.en.length > 1 && /:/.test(l)))) {
+        (!prev.vi.length && prev.en.length > 1 && /:/.test(l)) ||
+        (prev.vi.length && !/[:=]/.test(l) && looksEnglish(l) && !/^\s*(\d+\s*[.,)>]|[-•+*])/.test(raw)))) {
       prev.text = prev.text.replace(/\s*=\s*$/, '') + ' = ' + l.replace(/^=\s*/, '');
     } else {
       groups.push({text: l, crossed: []});

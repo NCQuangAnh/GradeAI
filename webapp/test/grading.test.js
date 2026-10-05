@@ -551,7 +551,9 @@ test('an "=" chain over several lines shares its meaning', () => {
       { id: '1.4', written_en: 'tiny', written_vi: '', meaning_ok: false }] }, parts, []));
   assert.equal(r.items[0].written_vi, 'to lớn');
   assert.equal(r.items[0].meaning_ok, true);     // matches the key, accepted by code
-  assert.equal(r.items[3].written_vi, '');       // not in a chain: still no meaning
+  // a lone English item right under a line with a meaning takes it to be checked (synonyms stacked under one meaning)
+  assert.equal(r.items[3].written_vi, 'nhỏ');
+  assert.equal(r.items[3].meaning_ok, false);   // "nhỏ" is not "nhỏ xíu": the meaning check decides
   // "=" read as ":" between two English items still makes a chain
   const r2 = plain(G.normalizeGrade({ written_name: '', matched_name: '', key_matches: true, unclear: [],
     lines: ['- big : large', '= tiny : to lớn'],
@@ -618,4 +620,17 @@ test('a word that only fits once one word is dropped is asked about as crossed o
   const keep = plain(r);
   G.applyCrossedChecks(keep, checks, [{ id: '1.1', look: 'sạch', crossed: false }]);
   assert.equal(keep.items[0].written_en, 'school activities');
+});
+
+test('"/" between whole phrases, "not" for "no", an item continued on the next page', () => {
+  assert.equal(G.letterErrors("Can't bear /can't stand +Ving", "Can't stand/ can't bear (+ V-ing)"), 0);
+  assert.equal(G.letterErrors("there's not use + Ving", "there's no use (+ V-ing)"), 0);
+  assert.equal(G.letterErrors('spend money + Ving', 'Spend time/money (+ V-ing)'), 0);
+  assert.equal(G.letterErrors("can't help", "Can't stand/ can't bear (+ V-ing)"), 3);
+  assert.equal(G.letterErrors("Can't stand / can't get", "Can't stand/ can't bear (+ V-ing)"), 3);   // every choice written must be right
+  const keyParts = [{ part: 'TỪ VỰNG', kind: 'word', unit: 'từ', items: [{ id: '1.1', en: 'have difficulty/trouble (+ V-ing)', vi: 'gặp khó khăn' }] }];
+  const page = (id, en, vi, ok) => ({ fileId: id, fileName: id, url: '', writtenName: 'Vy', matchedName: 'Khánh Vy', keyMatches: true,
+    unclear: [], items: [{ id: '1.1', written_en: en, written_vi: vi, meaning_ok: ok, other_word: false, correct: false }] });
+  const t = plain(G.assembleSession(keyParts, ROSTER, [page('a', 'have difficulty / trouble', '', false), page('b', 'ving', 'gặp khó khăn', true)], 'TA9', PENALTY));
+  assert.equal(t.rows.find((r) => r.name === 'Khánh Vy').values['TỪ VỰNG'], '1/1 từ');
 });

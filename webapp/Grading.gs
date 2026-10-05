@@ -36,7 +36,8 @@ function stripAccents(s) {
 function notationNorm_(s) {
   // "advise 0 to V": số 0 đứng riêng là chữ O
   var t = ' ' + String(s || '').toLowerCase().replace(/[()\[\]]/g, ' ').replace(/(^|\s)0(?=\s|$)/g, '$1o') + ' ';
-  t = t.replace(/(^|[^a-z])(somebody|someone|smb|sb|o)(?=[^a-z]|$)/g, '$1 sb ')
+  t = t.replace(/(^|[^a-z])not(?=[^a-z]|$)/g, '$1no')  // "there's not use" = "there's no use"
+       .replace(/(^|[^a-z])(somebody|someone|smb|sb|o)(?=[^a-z]|$)/g, '$1 sb ')
        .replace(/(^|[^a-z])(something|sth)(?=[^a-z]|$)/g, '$1 sth ')
        .replace(/(^|[^a-z])([vul]\s*[-_.]?\s*ing|doing)(?=[^a-z]|$)/g, '$1 ving ');
   return normLetters(t);
@@ -62,6 +63,12 @@ function slashChoices_(s) {
   m[0].split('/').forEach(function (w) {
     slashChoices_(s.slice(0, m.index) + w.trim() + s.slice(m.index + m[0].length)).forEach(function (x) { out.push(x); });
   });
+  // cả cụm nối bằng "/": "Can't stand/ can't bear" = "can't stand" hoặc "can't bear" (em viết đảo thứ tự cũng được)
+  var tail = /\s*(\(\s*\+?\s*[^)]*\)|\+\s*\S+)\s*$/.exec(s), body = tail ? s.slice(0, tail.index) : s;
+  var parts = body.split('/');
+  if (parts.length > 1 && parts.every(function (p) { return p.trim().split(/\s+/).length > 1; })) {
+    parts.forEach(function (p) { out.push(p.trim() + (tail ? ' ' + tail[1] : '')); });
+  }
   return out;
 }
 
@@ -109,7 +116,6 @@ function writtenForms_(written) {
   var s = String(written || '').replace(POS_TAG_, ' ').replace(POS_TAG_MISREAD_, '$1 ').trim();
   var bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
   var raw = bare === s ? [s] : [s, bare];
-  raw.slice().forEach(function (r) { slashChoices_(r).slice(1).forEach(function (x) { raw.push(x); }); });
   // mạo từ em thêm vào ("take the advice" khi đáp án là "take advice") tính 1 lỗi, như sai 1 chữ cái
   var withArticle = [];
   raw.slice().forEach(function (r) {
@@ -117,7 +123,7 @@ function writtenForms_(written) {
     if (no !== r) { raw.push(no); withArticle.push(no); }
   });
   // "waste (n) = waste (v)": AI chép cả chuỗi từ nối bằng "=" vào một mục, so từng từ trong chuỗi
-  if (/[=\/]/.test(s)) s.split(/[=\/]/).forEach(function (w) { if (w.trim()) raw.push(w.trim()); });
+  if (/=/.test(s)) s.split('=').forEach(function (w) { if (w.trim()) raw.push(w.trim()); });
   // chữ viết dở rồi viết lại ngay bằng chữ cùng chữ cái đầu ("Do the lunc laundry"): thử bỏ chữ viết dở
   raw.slice().forEach(function (r) {
     var toks = r.split(/\s+/);
@@ -146,7 +152,29 @@ function bestForm_(written, key) {
       if (e < dist) { dist = e; best = f; bestW = w; }
     });
   });
+  // em viết các lựa chọn nối bằng "/" ("Follow / take advice", "Can't bear / can't stand"): MỌI lựa chọn em viết
+  // phải đúng, tính theo lựa chọn sai nhiều nhất ("Can't stand / can't get" sai vì "can't get")
+  slashSets_(String(written || '')).forEach(function (alts) {
+    var worst = null;
+    alts.forEach(function (a) {
+      var f = bestForm_(a, key);
+      if (!worst || f.errors > worst.errors) worst = f;
+    });
+    if (worst && worst.errors < dist) { dist = worst.errors; best = worst.key; bestW = worst.written; }
+  });
   return {written: bestW, key: best, errors: dist};
+}
+
+/** Các cách hiểu "/" trong chữ em viết: theo từng chữ ("take/follow advice") và theo cả cụm ("can't bear / can't stand"). */
+function slashSets_(s) {
+  if (s.indexOf('/') < 0) return [];
+  var sets = [], words = slashChoices_(s).slice(1);
+  var m = /([A-Za-z][\w'-]*)(?:\s*\/\s*[A-Za-z][\w'-]*)+/.exec(s);
+  if (m && words.length) sets.push(words.slice(0, m[0].split('/').length));
+  var tail = /\s*(\(\s*\+?\s*[^)]*\)|\+\s*\S+)\s*$/.exec(s), body = tail ? s.slice(0, tail.index) : s;
+  var parts = body.split('/').map(function (p) { return p.trim(); }).filter(String);
+  if (parts.length > 1) sets.push(parts.map(function (p) { return p + (tail ? ' ' + tail[1] : ''); }));
+  return sets;
 }
 
 /** Letters to add, remove, change or swap to turn `written` into `key` (swap of 2 neighbours = 1). */
@@ -466,11 +494,22 @@ function formulaOk_(it, k) {
 /** Gộp các ảnh của một em: mỗi mục lấy bản em thực sự viết (ưu tiên bản đúng). */
 function mergeStudent_(photos) {
   var byId = {};
+  // mục viết vắt sang trang sau: "have difficulty / trouble" cuối trang 1, "+ Ving : gặp khó khăn" đầu trang 2
+  var fragment = function (w) { return /^(ving|sb|sth|to|)$/.test(notationNorm_(w)); };
   photos.forEach(function (ph) {
     (ph.items || []).forEach(function (it) {
       var cur = byId[it.id], w = String(it.written_en || '').trim();
       if (!cur) { byId[it.id] = it; return; }
       var cw = String(cur.written_en || '').trim();
+      var head = null, rest = null;
+      if (cw && !fragment(cw) && !String(cur.written_vi || '').trim() && w && fragment(w)) { head = cur; rest = it; }
+      if (w && !fragment(w) && !String(it.written_vi || '').trim() && cw && fragment(cw)) { head = it; rest = cur; }
+      if (head) {
+        byId[it.id] = {id: it.id, written_en: head.written_en + ' ' + rest.written_en, written_vi: rest.written_vi,
+                       meaning_ok: !!rest.meaning_ok, other_word: !!head.other_word,
+                       correct: !!(rest.correct || head.correct), note: rest.note || head.note || ''};
+        return;
+      }
       if ((!cw && w) || (w && ((!cur.correct && it.correct) || (!cur.meaning_ok && it.meaning_ok)))) byId[it.id] = it;
     });
   });
