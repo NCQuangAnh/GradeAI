@@ -112,6 +112,9 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   (`slashSets_` trong `bestForm_`: "Can't stand / can't get" sai). "not" = "no" ("there's not use"). Mục vắt sang trang sau
   ("have difficulty / trouble" cuối trang 1, "+ Ving : gặp khó khăn" đầu trang 2) được nối lại (`mergeStudent_`). Dòng tiếng
   Anh không đánh số, không nghĩa, ngay dưới dòng có nghĩa (từ cùng nghĩa viết chồng) dùng nghĩa dòng trên, vẫn xét lại.
+- Công thức (TA9 5/10): GRADE_PROMPT cho tên thì thay dạng động từ (TLĐ = will + V...), V = Vnt = Vngthe, PII = P3,
+  liệt kê thêm động từ khuyết thiếu cùng loại, thêm "S +"/"IF +", thiếu dấu phẩy đều đúng. Khớp cô 15/16 em.
+- Em không có ảnh: ô đầu có "Tự nhập điểm..." (`absentSelect`/`onAbsentSelect`, `absentTyped`), dòng hiện đủ các ô.
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
 - Cảnh báo ảnh mờ/tối: `photoQuality` trong `Index.html` (độ nét < 350, độ sáng < 100). Ngưỡng đo bằng

@@ -213,6 +213,7 @@
     table.review td.notes textarea { min-width: 0; }
     table.review input, table.review textarea, table.review select { font-size: 16px; }  /* 16px: iPhone không tự phóng to */
     table.review .penSel { min-width: 0; }
+    table.review .absSel, table.review .absText { width: 100%; min-width: 0; }
     /* em không có bài: thẻ gọn, chỉ tên + Vắng/Không có bài */
     table.review tr.missing td:not(.namecell):not(:nth-child(2)):not(.delcell) { display: none; }
     table.review tr.missing td:nth-child(2) { grid-column: 1 / -1; }
@@ -1301,13 +1302,15 @@ function renderTable() {
       <tbody>${graded.map((i) => rowHtml(t.rows[i], i, cols)).join('')}</tbody></table></div>
     <p class="row" style="margin-top:10px"><button id="addRow" type="button">+ Thêm dòng</button></p>
     ${absent.length ? `<h2 class="section-title">Chưa có bài (${absent.length})</h2>
-      <p class="muted">Chọn Vắng hoặc Không có bài, hoặc để trống. Có ảnh bài của em thì gán ở mục "Bài chưa có tên".</p>
+      <p class="muted">Chọn Vắng hoặc Không có bài, hoặc để trống. Tìm thấy bài giấy và đã chấm tay thì chọn "Tự nhập điểm..."
+        rồi gõ điểm, từ sai, chép phạt. Có ảnh bài của em thì gán ở mục "Bài chưa có tên".</p>
       <div class="tablewrap"><table class="review">${head}
         <tbody>${absent.map((i) => rowHtml(t.rows[i], i, cols)).join('')}</tbody></table></div>` : ''}`;
   renderExportBox();
   $('tableBox').querySelectorAll('textarea').forEach(autoGrow);
   $('tableBox').querySelectorAll('[data-r]').forEach((el) => (el.oninput = onCellInput));
   $('tableBox').querySelectorAll('[data-pen]').forEach((el) => (el.onchange = onPenaltySelect));
+  $('tableBox').querySelectorAll('[data-abs]').forEach((el) => (el.onchange = onAbsentSelect));
   $('tableBox').querySelectorAll('[data-c="__name"]').forEach((el) => (el.onchange = onNameChange));
   $('tableBox').querySelectorAll('[data-view]').forEach((a) => (a.onclick = (e) => {
     e.preventDefault(); openViewerById(a.dataset.view);
@@ -1406,7 +1409,7 @@ function markEdited() {
 }
 
 function rowHtml(r, i, cols) {
-  const cls = r.status === 'missing' ? 'missing' : (r.flag ? 'review' : '');
+  const cls = r.status === 'missing' ? (absentTyped(r, cols[0]) ? '' : 'missing') : (r.flag ? 'review' : '');
   const named = String(r.name || '').trim();
   const links = (r.photos || []).map((p, k) => `<a href="#" data-view="${esc(p.id)}">ảnh ${k + 1}</a>`).join('');
   // "tách" ở dòng riêng; bấm vào mới hỏi tách ảnh nào (kể cả khi chỉ có 1 ảnh) để bấm nhầm không bị tách luôn
@@ -1422,7 +1425,7 @@ function rowHtml(r, i, cols) {
     <td class="namecell" data-label="Học sinh"><input list="rosterList" value="${esc(r.name)}" data-r="${i}" data-c="__name" placeholder="Chọn tên">
         <div class="links">${links}</div>${split}</td>
     ${cols.map((c, ci) => `<td class="${c === 'TỪ VIẾT SAI' ? 'wrong' : (c === 'CHÉP PHẠT' ? 'pen half' : 'score half')}"
-        data-label="${ci === 0 && r.status === 'missing' ? 'Không có ảnh bài' : esc(c)}">${cell(c, ci)}</td>`).join('')}
+        data-label="${ci === 0 && r.status === 'missing' && !absentTyped(r, c) ? 'Không có ảnh bài' : esc(c)}">${cell(c, ci)}</td>`).join('')}
     <td class="notes" data-label="Ghi chú"><textarea rows="2" data-r="${i}" data-c="__notes">${esc(r.notes)}</textarea></td>
     <td class="delcell"><button class="del" data-del="${i}" type="button" title="Xóa dòng">Xóa dòng</button></td></tr>`;
 }
@@ -1456,12 +1459,33 @@ function onPenaltySelect(e) {
   markEdited(); saveTableSoon(0);
 }
 
-/** Em không có ảnh bài: để trống, "Vắng" hoặc "Không có bài" (giữ cả chữ cũ như "đi muộn" nếu có). */
+/**
+ * Em không có ảnh bài: để trống, "Vắng", "Không có bài", hoặc "Tự nhập..." (cô tìm thấy bài, chấm tay rồi gõ điểm,
+ * ví dụ "11/13 từ"; chữ cũ như "đi muộn" cũng hiện ở ô tự nhập).
+ */
+const ABSENT_OPTIONS = ['', 'Vắng', 'Không có bài'];
+function absentTyped(r, c) { const v = String((r.values || {})[c] || ''); return !!v && !ABSENT_OPTIONS.includes(v); }
 function absentSelect(r, i, c) {
-  const cur = String((r.values || {})[c] || ''), opts = ['', 'Vắng', 'Không có bài'];
-  if (cur && !opts.includes(cur)) opts.push(cur);
-  return `<select data-r="${i}" data-c="${esc(c)}">${opts.map((o) =>
-    `<option value="${esc(o)}" ${o === cur ? 'selected' : ''}>${o ? esc(o) : '(để trống)'}</option>`).join('')}</select>`;
+  const cur = String((r.values || {})[c] || ''), typed = absentTyped(r, c);
+  return `<select class="absSel" data-abs="${i}" data-c="${esc(c)}">${ABSENT_OPTIONS.map((o) =>
+      `<option value="${esc(o)}" ${!typed && o === cur ? 'selected' : ''}>${o ? esc(o) : '(để trống)'}</option>`).join('')}
+      <option value="__custom" ${typed ? 'selected' : ''}>Tự nhập điểm...</option></select>
+    <textarea rows="1" class="absText" data-r="${i}" data-c="${esc(c)}" placeholder="Ví dụ: 11/13 từ" ${typed ? '' : 'hidden'}>${typed ? esc(cur) : ''}</textarea>`;
+}
+
+function onAbsentSelect(e) {
+  const sel = e.target, row = S.table.rows[+sel.dataset.abs], c = sel.dataset.c;
+  const text = sel.parentNode.querySelector('.absText'), tr = sel.closest('tr');
+  row.values = row.values || {};
+  if (sel.value === '__custom') {
+    text.hidden = false; text.focus();
+    row.values[c] = text.value;
+  } else {
+    text.hidden = true; text.value = '';
+    row.values[c] = sel.value;
+  }
+  tr.classList.toggle('missing', sel.value !== '__custom');  // tự nhập điểm: hiện đủ các ô (từ sai, chép phạt...) trên điện thoại
+  markEdited(); saveTableSoon(0);
 }
 
 /** Ô chữ cao vừa đủ nội dung, không bị cắt chữ. */
