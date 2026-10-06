@@ -328,7 +328,7 @@ const VND_PER_USD = 26000;
 
 // ---------- helpers ----------
 // Thời gian chờ tối đa cho mỗi lệnh gửi máy chủ (google.script.run đôi khi không bao giờ trả lời).
-const SLOW_CALLS = { gradePhoto: 300000, readKey: 180000, buildTable: 180000, exportSession: 180000, deleteFile: 180000,
+const SLOW_CALLS = { gradePhoto: 360000, readKey: 180000, buildTable: 180000, exportSession: 180000, deleteFile: 180000,
                      saveClassRoster: 180000, uploadImage: 120000, assignPhotos: 180000 };
 function run(fn, ...args) {
   return new Promise((resolve, reject) => {
@@ -1226,7 +1226,7 @@ async function gradePhotos(photos, checkMatch, freshIds) {
   $('tableBox').innerHTML = ''; $('exportBox').innerHTML = '';
   S.cost = S.cost || 0;
   let lastKey = (S.key && S.key.keyLabel) || '', done = 0, failed = 0, allowPaid = false;
-  const matches = [], okIds = [];
+  const matches = [], okIds = [], failedIds = [];
   for (let i = 0; i < photos.length; i++) {
     const p = photos[i];
     $('progress').innerHTML = `<p>Đang chấm ảnh ${i + 1}/${photos.length}${lastKey ? ' (key ' + esc(lastKey) + ')' : ''}...<br>
@@ -1242,12 +1242,12 @@ async function gradePhotos(photos, checkMatch, freshIds) {
         const choice = await askFreeKeysFailed(raw);
         if (choice === 'paid') allowPaid = true;
         if (choice !== 'stop') { i--; continue; }  // chấm lại ảnh này (thử lại key miễn phí, hoặc cho phép key trả phí)
-        failed += photos.length - i; break;
+        failed += photos.length - i; photos.slice(i).forEach((x) => failedIds.push(x.id)); break;
       }
       if (msg.includes('Không còn key nào')) {  // every key is out: stop instead of failing each photo
-        failed += photos.length - i; toast(msg, true); break;
+        failed += photos.length - i; photos.slice(i).forEach((x) => failedIds.push(x.id)); toast(msg, true); break;
       }
-      failed++;
+      failed++; failedIds.push(p.id);
     }
     if (checkMatch && matches.length === 2) {
       checkMatch = false;
@@ -1257,14 +1257,20 @@ async function gradePhotos(photos, checkMatch, freshIds) {
       }
     }
   }
-  $('progress').innerHTML = `<p>Đã chấm ${done} ảnh${failed ? `, <b>${failed} ảnh chưa chấm được</b> (bấm "Chấm ảnh mới" để thử lại)` : ''}.
-    ${costText()}</p>`;
   try {
     // chỉ dòng có ảnh chấm lại được mới lấy kết quả mới (ảnh lỗi giữ dòng cũ cô đã duyệt)
     await run('buildTable', sesId, (freshIds || []).filter((id) => okIds.includes(id)));
   } catch (e) { toast('Lỗi khi lập bảng: ' + errMsg(e), true); }
   setBusy(false);
   await renderGradeTop();
+  // ảnh báo lỗi vì trang chờ quá lâu nhưng máy chủ vẫn chấm xong và đã lưu: không tính là chưa chấm
+  const stillNew = new Set((S.newPhotos || []).map((x) => x.id));
+  // chấm lại bài chọn: ảnh lỗi vẫn còn kết quả cũ nên không biết máy chủ đã chấm lại chưa, coi là chưa chấm
+  const notDone = freshIds ? failedIds.length : failedIds.filter((id) => stillNew.has(id)).length;
+  const lateDone = failedIds.length - notDone;
+  const retryHint = freshIds ? 'bấm "Chấm lại bài chọn..." để thử lại' : 'bấm "Chấm ' + notDone + ' ảnh mới" để thử lại';
+  $('progress').innerHTML = `<p>Đã chấm ${done + lateDone} ảnh${notDone ? `, <b>${notDone} ảnh chưa chấm được</b> (${retryHint})` : ''}.
+    ${costText()}</p>`;
   if (S.table) renderTable();
   if (V.sesId === sesId) loadFileList().then((ok) => ok && renderGallery()).catch(() => {});  // cập nhật nhãn "Đã chấm"
 }

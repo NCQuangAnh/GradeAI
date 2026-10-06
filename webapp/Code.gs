@@ -656,12 +656,15 @@ function tryKeys_(keys, body, today) {
  * Không được thì trả null (giữ kết quả đọc ảnh). Không ghi trạng thái hết lượt vào KEY_STATE vì các mô hình này
  * có hạn mức riêng, không ảnh hưởng việc chấm chính.
  */
-function callGeminiQuiet_(body, models) {
+function callGeminiQuiet_(body, models, budgetMs) {
+  // gọi phụ không được làm cả lần chấm ảnh quá lâu (trang web chờ tối đa 6 phút): hết thời gian thì bỏ, giữ kết quả cũ
+  var deadline = Date.now() + (budgetMs || 60000);
   var state = loadKeyState_(), today = pacificDay_();
   var keys = geminiKeys_().filter(function (k) { return !k.paid && !keyResting_(state[keyId_(k.key)], today, Date.now()); });
   for (var m = 0; m < models.length; m++) {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + models[m] + ':generateContent';
     for (var i = 0; i < keys.length; i++) {
+      if (Date.now() > deadline) return null;
       var res = null;
       try {
         res = UrlFetchApp.fetch(url, {
@@ -748,7 +751,7 @@ function gradePhoto(sessionId, fileId, keyParts, roster, allowPaid) {
   // chữ bị gạch AI không thấy: hỏi lại riêng kèm ảnh (chỉ key miễn phí, lỗi thì giữ kết quả đọc ảnh)
   var crossed = crossedChecks(out, keyParts);
   if (crossed.length) {
-    var x = callGeminiQuiet_(buildCrossedRequest(crossed, photo), CONFIG.CROSSED_MODELS);
+    var x = callGeminiQuiet_(buildCrossedRequest(crossed, photo), CONFIG.CROSSED_MODELS, 90000);
     if (x) applyCrossedChecks(out, crossed, x.data);
   }
   var checks = meaningChecks(out, keyParts);
