@@ -64,7 +64,7 @@ function doGet() {
   // *-web-app-capable: thêm ra màn hình chính thì mở như ứng dụng riêng. Trên iPhone, ứng dụng đó có
   // đăng nhập riêng (tách khỏi Safari), nên chỉ cần đăng nhập 1 tài khoản dùng web trong đó.
   return t.evaluate()
-    .setTitle('Chấm bài')
+    .setTitle('GradeAI')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .addMetaTag('apple-mobile-web-app-capable', 'yes')
     .addMetaTag('mobile-web-app-capable', 'yes');
