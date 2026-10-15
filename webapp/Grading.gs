@@ -113,7 +113,8 @@ var POS_TAG_MISREAD_ = /([a-z])\s+c(n|v)(?=\s|=|$)/gi;  // "waste (n)" AI đọc
  * Chữ viết dở rồi viết lại ngay ("S' Sibling", "SiSibling") cũng không tính: bỏ 1-3 chữ cái đầu lặp lại phần sau.
  */
 function writtenForms_(written) {
-  var s = String(written || '').replace(POS_TAG_, ' ').replace(POS_TAG_MISREAD_, '$1 ').trim();
+  var s = String(written || '').replace(POS_TAG_, ' ').replace(POS_TAG_MISREAD_, '$1 ')
+    .replace(/\bO(?=to\s*[VU]\b)/g, 'O ').trim();  // "Encourage OtoV": chữ O (sb) viết liền "to V"
   var bare = s.replace(/^\s*([a-z]{1,2}|\d{1,2})\s*[:.)]\s*(?=\S)/i, '');
   var raw = bare === s ? [s] : [s, bare];
   // mạo từ em thêm vào ("take the advice" khi đáp án là "take advice") tính 1 lỗi, như sai 1 chữ cái
@@ -346,11 +347,15 @@ function acceptKnownMeanings_(items, keyParts) {
   items.forEach(function (it) {
     var k = keyById[it.id];
     if (!k || it.meaning_ok || !String(it.written_vi || '').trim()) return;
-    // em viết nhiều nghĩa ("lo lắng, áp lực"): một nghĩa khớp một nghĩa của đáp án là được
-    var mine = String(it.written_vi).split(/[,;]/), keys = String(k.vi).split(/[,;]/);
-    if (viMatches_(it.written_vi, k.vi) || mine.some(function (w) {
-      return w.trim() && keys.some(function (kv) { return kv.trim() && viMatches_(w, kv); });
-    })) it.meaning_ok = true;
+    if (meaningMatches_(it.written_vi, k.vi)) it.meaning_ok = true;
+  });
+}
+
+/** Em viết nhiều nghĩa ("lo lắng, áp lực"): một nghĩa khớp một nghĩa của đáp án là được. */
+function meaningMatches_(written, key) {
+  var mine = String(written || '').split(/[,;]/), keys = String(key || '').split(/[,;]/);
+  return viMatches_(written, key) || mine.some(function (w) {
+    return w.trim() && keys.some(function (kv) { return kv.trim() && viMatches_(w, kv); });
   });
 }
 

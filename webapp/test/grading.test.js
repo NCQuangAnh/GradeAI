@@ -661,3 +661,31 @@ test('an item takes the line that matches the key instead of the bare head word;
   assert.equal(r.items[0].meaning_ok, true);
   assert.equal(G.letterErrors(r.items[0].written_en, 'Stay/keep calm'), 0);
 });
+
+test('a crossed-out chunk of the meaning is asked about with the photo and dropped when confirmed', () => {
+  const key = [{ name: 'TỪ VỰNG', kind: 'word', items: [{ id: '1.1', en: 'Remote area', vi: 'khu vực xa xôi' },
+    { id: '1.2', en: 'feel like + Ving', vi: 'muốn làm gì' }] }];
+  const result = { items: [
+    { id: '1.1', written_en: 'Remote area', written_vi: 'khu vực thành thị xa xôi', meaning_ok: false },
+    { id: '1.2', written_en: 'feel like + Ving', written_vi: 'ghét làm gì', meaning_ok: false }] };
+  const checks = plain(G.crossedMeaningChecks(result, key));
+  assert.equal(checks.length, 1);
+  assert.equal(checks[0].word, 'thành thị');
+  assert.match(G.buildCrossedRequest(checks, { mime: 'image/jpeg', b64: '' }).contents[0].parts[0].text, /mã 1\.1 nghĩa/);
+  G.applyCrossedChecks(result, checks, [{ id: '1.1 nghĩa', look: 'gạch ngang', crossed: true }]);
+  assert.equal(result.items[0].written_vi, 'khu vực xa xôi');
+  assert.equal(result.items[0].meaning_ok, true);
+});
+
+test('a missed line with letters crossed inside a word is found; synonyms written as a pair share one meaning', () => {
+  const key = [{ name: 'TỪ VỰNG', kind: 'word', items: [{ id: '1.9', en: 'In the suburbs', vi: 'ở ngoại ô, ngoại thành' },
+    { id: '1.10', en: 'on the outskirts', vi: 'ở ngoại ô, ngoại thành' }] }];
+  const r = plain(G.normalizeGrade({
+    lines: ['9)In the sub~~urbs~~ urb : ~~thành~~', '10)On the outskirts : ở vùng ngoại ô'],
+    items: [{ id: '1.9', written_en: '', written_vi: '' },
+      { id: '1.10', written_en: 'On the outskirts', written_vi: 'ở vùng ngoại ô', meaning_ok: true }],
+  }, key, []));
+  assert.equal(r.items[0].written_en, 'In the suburb');
+  assert.equal(r.items[0].written_vi, 'ở vùng ngoại ô');
+  assert.equal(G.letterErrors('Encourage OtoV', 'Encourage O to V'), 0);
+});

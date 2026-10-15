@@ -281,7 +281,7 @@ function normalizeGrade(data, keyParts, roster) {
   dropInvented_(items, lines, prepared, unclear);
   splitArrows_(items, prepared, unclear);
   slashLines_(items, lines, prepared, unclear);
-  shareChainMeanings_(items, lines, prepared, unclear);
+  shareChainMeanings_(items, lines, prepared, unclear, data.written_name);
   realignLines_(items, prepared, unclear);
   betterLine_(items, lines, prepared, unclear);
   acceptKnownMeanings_(items, prepared);
@@ -394,9 +394,10 @@ function slashLines_(items, lines, keyParts, unclear) {
  * kết thúc bằng "=") nối tiếp dòng trên ("focus on : tập trung" / "= pay attention to :"). Mục có chữ tiếng Anh mà
  * AI để trống nghĩa thì lấy nghĩa của chuỗi; nghĩa đó vẫn được xét lại (acceptKnownMeanings_, meaningChecks).
  */
-function shareChainMeanings_(items, lines, keyParts, unclear) {
+function shareChainMeanings_(items, lines, keyParts, unclear, writtenName) {
   if (!lines.length) return;
   var flat = function (s) { return normLetters(stripAccents(s)); };
+  var name = flat(writtenName || '');
   var keyById = {}, isWord = {}, keyEns = [];
   keyParts.forEach(function (p) {
     p.items.forEach(function (k) { keyById[k.id] = k; isWord[k.id] = p.kind === 'word'; keyEns.push(k.en); });
@@ -419,7 +420,7 @@ function shareChainMeanings_(items, lines, keyParts, unclear) {
   var groups = [];
   lines.forEach(function (raw) {
     var l = raw.replace(/~~[^~]*~~/g, ' ').replace(/^\s*(\d+\s*[.)]|[-•+*])\s*/, '').trim();
-    if (!l) return;
+    if (!l || (name && flat(l) === name)) return;  // dòng tên em ("M. Ngọc" cuối trang) không phải nghĩa tràn dòng
     var prev = groups[groups.length - 1];
     // nghĩa viết tràn xuống dòng dưới ("tập" / "trung"): dòng chỉ có chữ tiếng Việt, không có ":" hay "="
     if (prev && !/[:=]/.test(l) && !looksEnglish(l) &&
@@ -455,7 +456,7 @@ function shareChainMeanings_(items, lines, keyParts, unclear) {
     if (String(it.written_vi || '').trim()) return;
     var w = flat(it.written_en);
     var g = groups.filter(function (x) {
-      return x.vi.length && (x.en.length > 1 && x.en.some(function (e) { return flat(e) === w; }) ||
+      return x.vi.length && (x.en.some(function (e) { return flat(e) === w; }) ||
         x.crossed.some(function (e) { return flat(e) === w; }));
     })[0];
     if (!g) return;
@@ -545,13 +546,15 @@ function realignLines_(items, keyParts, unclear) {
  */
 function betterLine_(items, lines, keyParts, unclear) {
   if (!lines.length) return;
+  // "In the sub~~urbs~~ urb": chữ chèn thay phần bị gạch giữa một chữ thì nối liền ("In the suburb")
+  var unCross = function (s) { return s.replace(/([a-z])~~[^~]*~~\s*(?=[a-z])/gi, '$1').replace(/~~[^~]*~~/g, ' '); };
   var flat = function (s) { return normLetters(stripAccents(s)); };
   var words = function (s) { return stripAccents(s).toLowerCase().split(/[^a-z']+/).filter(String); };
   var keyById = {}, isWord = {};
   keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; isWord[k.id] = p.kind === 'word'; }); });
   var cands = [];
   lines.forEach(function (raw) {
-    var l = raw.replace(/~~[^~]*~~/g, ' ').replace(/^\s*(\d+\s*[.,)]?|->|=>|→|[-•+*])\s*/, '').trim();
+    var l = unCross(raw).replace(/^\s*(\d+\s*[.,)]?|->|=>|→|[-•+*])\s*/, '').replace(/\s+/g, ' ').trim();
     var i = l.indexOf(':'), en = i < 0 ? l : l.slice(0, i), vi = i < 0 ? '' : l.slice(i + 1).trim();
     if (VI_MARKS_.test(vi) || !vi) en.split('=').forEach(function (s) {
       s = s.replace(/^\s*(->|=>|→|[-•+*])\s*/, '').trim();
@@ -559,8 +562,8 @@ function betterLine_(items, lines, keyParts, unclear) {
     });
   });
   items.forEach(function (it) {
-    if (!isWord[it.id] || !it.written_en) return;
-    var key = keyById[it.id].en, now = letterErrors(it.written_en, key);
+    if (!isWord[it.id]) return;  // mục trống: AI bỏ sót dòng em viết (hoặc dropInvented_ đã bỏ chữ AI ghi sai)
+    var key = keyById[it.id].en, now = it.written_en ? letterErrors(it.written_en, key) : Infinity;
     if (now < 2) return;
     var best = null, bestErr = 2;
     cands.forEach(function (c) {
@@ -570,12 +573,41 @@ function betterLine_(items, lines, keyParts, unclear) {
     });
     if (!best) return;
     var oldWords = words(it.written_en), newWords = words(best.en);
-    var keepVi = !best.vi && oldWords.every(function (w) { return newWords.indexOf(w) >= 0; });
-    unclear.push('mục ' + key + ': AI lấy "' + it.written_en + '", em có viết "' + best.en + '"' +
+    var keepVi = !best.vi && !!oldWords.length && oldWords.every(function (w) { return newWords.indexOf(w) >= 0; });
+    unclear.push('mục ' + key + ': ' + (it.written_en ? 'AI lấy "' + it.written_en + '", ' : 'AI bỏ sót, ') +
+                 'em có viết "' + best.en + '"' +
                  (keepVi ? ' (dòng này không có nghĩa, dùng nghĩa của dòng "' + it.written_en + '")' : ''));
     it.written_en = best.en;
     if (!keepVi) it.written_vi = best.vi;
     it.meaning_ok = false; it.correct = false;
+  });
+  shareKeySynonyms_(items, lines.map(unCross), keyById, isWord, unclear);
+}
+
+/**
+ * Hai mục cùng nghĩa trong đáp án ("In the suburbs", "on the outskirts": ở ngoại ô) em viết hai dòng liền nhau, một
+ * nghĩa chung (ngoặc nhọn hoặc nghĩa viết ở lề): mục chưa có nghĩa dùng nghĩa của mục kia. Nghĩa vẫn xét lại.
+ */
+function shareKeySynonyms_(items, clean, keyById, isWord, unclear) {
+  var flat = function (s) { return normLetters(stripAccents(s)); };
+  var lineOf = function (en) {
+    var w = flat(en);
+    for (var i = 0; w && i < clean.length; i++) if (flat(clean[i]).indexOf(w) >= 0) return i;
+    return -1;
+  };
+  items.forEach(function (it) {
+    if (!isWord[it.id] || !it.written_en || String(it.written_vi || '').trim()) return;
+    var kv = flat(keyById[it.id].vi || ''), at = lineOf(it.written_en);
+    if (!kv || at < 0) return;
+    var mate = items.filter(function (o) {
+      return o !== it && isWord[o.id] && String(o.written_vi || '').trim() && flat(keyById[o.id].vi || '') === kv &&
+        Math.abs(lineOf(o.written_en) - at) === 1;
+    })[0];
+    if (!mate) return;
+    it.written_vi = mate.written_vi;
+    it.meaning_ok = false;
+    unclear.push('mục ' + keyById[it.id].en + ': dùng nghĩa chung với dòng "' + mate.written_en + '" ("' +
+                 mate.written_vi + '")');
   });
 }
 
@@ -642,6 +674,33 @@ function crossedChecks(result, keyParts) {
   return out;
 }
 
+/**
+ * Nghĩa có chữ bị gạch AI vẫn chép ("khu vực ~~thành thị~~ xa xôi" chép thành "khu vực thành thị xa xôi"): nghĩa vẫn bị
+ * chê sau khi hỏi lại nghĩa mà bỏ 1-2 chữ liền nhau thì khớp đáp án. Hỏi lại kèm ảnh như crossedChecks.
+ */
+function crossedMeaningChecks(result, keyParts) {
+  var keyById = {}, out = [];
+  prepareKey(keyParts).forEach(function (p) {
+    if (p.kind === 'word') p.items.forEach(function (k) { keyById[k.id] = k; });
+  });
+  (result.items || []).forEach(function (it) {
+    var k = keyById[it.id], vi = String(it.written_vi || '').trim();
+    if (!k || !String(k.vi || '').trim() || !it.written_en || !vi || it.meaning_ok || meaningMatches_(vi, k.vi)) return;
+    var toks = vi.split(/\s+/), found = null;
+    for (var n = 1; n <= 2 && !found; n++) {
+      for (var i = 0; i + n <= toks.length && !found; i++) {
+        var rest = toks.slice(0, i).concat(toks.slice(i + n)).join(' ');
+        if (rest.trim() && meaningMatches_(rest, k.vi)) {
+          found = {id: it.id, ask: it.id + ' nghĩa', field: 'vi', line: String(it.written_en), vi: vi,
+                   word: toks.slice(i, i + n).join(' '), rest: rest};
+        }
+      }
+    }
+    if (found) out.push(found);
+  });
+  return out;
+}
+
 var CROSSED_PROMPT = [
   'Ảnh là bài làm viết tay của học sinh. Mỗi mục dưới đây là một dòng em viết và một chữ trong dòng đó.',
   'Tìm dòng đó trên ảnh, nhìn thật kỹ chữ được hỏi: chữ đó có bị gạch ngang, gạch chéo, tô đen, khoanh xóa hay viết đè',
@@ -654,7 +713,7 @@ var CROSSED_PROMPT = [
 
 function buildCrossedRequest(checks, photo) {
   var list = checks.map(function (c) {
-    return 'mã ' + c.id + ': dòng "' + c.line + (c.vi ? ' : ' + c.vi : '') + '" - chữ "' + c.word + '"';
+    return 'mã ' + (c.ask || c.id) + ': dòng "' + c.line + (c.vi ? ' : ' + c.vi : '') + '" - chữ "' + c.word + '"';
   });
   return {
     contents: [{role: 'user', parts: [{text: CROSSED_PROMPT + '\n\n' + list.join('\n')}, imagePart_(photo)]}],
@@ -668,18 +727,26 @@ function buildCrossedRequest(checks, photo) {
 
 /** Chữ được xác nhận bị gạch thì bỏ khỏi chữ em viết (chính tả và nghĩa chấm lại theo phần còn lại). */
 function applyCrossedChecks(result, checks, answers) {
-  var crossed = {};
+  checks = checks || [];
+  var crossed = [];
+  var ask = function (c) { return c.ask || c.id; };
   (answers || []).forEach(function (a, i) {
     if (!a || a.crossed !== true) return;
-    var id = (/(\d+\.\d+)/.exec(String(a.id)) || [])[1];  // AI có khi chép cả dòng vào id
-    crossed[id && checks.some(function (c) { return c.id === id; }) ? id : (checks[i] || {}).id] = true;
+    var said = String(a.id).replace(/^\s*m[aã]\s*/i, '').trim();
+    var c = checks.filter(function (x) { return ask(x) === said; })[0];
+    if (!c) {  // AI có khi chép cả dòng vào id: lấy mã mục trong đó, có chữ "nghĩa" thì là câu hỏi về nghĩa
+      var id = (/(\d+\.\d+)/.exec(said) || [])[1], vi = /ngh[iĩ]a/i.test(said);
+      c = checks.filter(function (x) { return x.id === id && (x.field === 'vi') === vi; })[0] || checks[i];
+    }
+    if (c && crossed.indexOf(c) < 0) crossed.push(c);
   });
-  (checks || []).forEach(function (c) {
-    if (!crossed[c.id]) return;
+  crossed.forEach(function (c) {
     (result.items || []).forEach(function (it) {
       if (it.id !== c.id) return;
-      it.written_en = c.rest;
-      (result.unclear = result.unclear || []).push('dòng "' + c.line + '": chữ "' + c.word + '" bị gạch, đã bỏ');
+      if (c.field === 'vi') { it.written_vi = c.rest; it.meaning_ok = true; }  // phần còn lại khớp đáp án
+      else it.written_en = c.rest;
+      (result.unclear = result.unclear || []).push('dòng "' + c.line + (c.field === 'vi' ? ' : ' + c.vi : '') +
+                                                   '": chữ "' + c.word + '" bị gạch, đã bỏ');
     });
   });
 }

@@ -760,6 +760,12 @@ function gradePhoto(sessionId, fileId, keyParts, roster, allowPaid) {
     if (m) applyMeaningChecks(out, m.data);
     else out.meaningCheck = 'skipped';  // không hỏi lại được: giữ kết quả đọc ảnh
   }
+  // nghĩa vẫn sai mà bỏ chữ bị gạch thì khớp: hỏi lại kèm ảnh chữ đó có bị gạch không
+  var crossedVi = crossedMeaningChecks(out, keyParts);
+  if (crossedVi.length) {
+    var y = callGeminiQuiet_(buildCrossedRequest(crossedVi, photo), CONFIG.CROSSED_MODELS, 60000);
+    if (y) applyCrossedChecks(out, crossedVi, y.data);
+  }
   out.fileId = fileId;
   out.fileName = file.getName();
   out.url = file.getUrl();
