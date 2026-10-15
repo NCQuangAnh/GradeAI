@@ -634,3 +634,18 @@ test('"/" between whole phrases, "not" for "no", an item continued on the next p
   const t = plain(G.assembleSession(keyParts, ROSTER, [page('a', 'have difficulty / trouble', '', false), page('b', 'ving', 'gặp khó khăn', true)], 'TA9', PENALTY));
   assert.equal(t.rows.find((r) => r.name === 'Khánh Vy').values['TỪ VỰNG'], '1/1 từ');
 });
+
+test('"Keep calm : take calm" is read as slash choices, the synonym line "a : b" is not', () => {
+  const key = [{ name: 'TỪ VỰNG', kind: 'word', items: [{ id: '1.1', en: 'Stay/keep calm', vi: 'bình tĩnh' },
+    { id: '1.2', en: 'do the laundry', vi: 'giặt đồ' }] }];
+  const r = plain(G.normalizeGrade({
+    lines: ['calm : bình tĩnh', 'Keep calm : take calm', 'do the laundry : wash the clothes'],
+    items: [{ id: '1.1', written_en: 'calm', written_vi: 'bình tĩnh', meaning_ok: true, correct: true },
+      { id: '1.2', written_en: 'do the laundry', written_vi: '', meaning_ok: false }],
+  }, key, []));
+  assert.equal(r.lines[1], 'Keep calm / take calm');
+  assert.equal(r.lines[2], 'do the laundry : wash the clothes');
+  assert.equal(r.items[0].written_en, 'Keep calm / take calm');
+  assert.equal(r.items[0].written_vi, 'bình tĩnh');
+  assert.equal(G.letterErrors('Keep calm / take calm', 'Stay/keep calm'), 3);  // every written choice must be right
+});

@@ -40,6 +40,8 @@ var GRADE_PROMPT = [
   'Chữ viết ở lề hoặc chỗ trống có mũi tên chỉ vào một dòng thì chép vào CUỐI dòng mũi tên chỉ tới, không phải dòng',
   'nằm ngang với nó. Ký hiệu đầu dòng chép đúng như trên giấy: "=" là "=", "-" là "-" (dòng "= big" nối tiếp dòng trên).',
   'Chữ viết tắt "lm" (làm) hay trông như "ln", "im": chép là "lm".',
+  'Dấu "/" viết tay hay trông như "l", "|": giữa hai cụm tiếng Anh ("Keep calm / take calm") là "/", không phải ":"',
+  '(":" chỉ đứng trước nghĩa tiếng Việt hoặc nối từ cùng nghĩa).',
   'TUYỆT ĐỐI KHÔNG tự sửa lỗi chính tả: em viết "bellow" thì chép "bellow", không phải "below".',
   'Chữ bị gạch ngang, gạch chéo hoặc tô đen là chữ em đã bỏ: KHÔNG chép, chỉ chép phần còn lại',
   '(ví dụ "bố m̶e̶ chồng/vợ" thì chép "bố chồng/vợ"). Nghĩa có chữ bị gạch hoặc tô rồi viết chữ khác cạnh đó',
@@ -278,6 +280,7 @@ function normalizeGrade(data, keyParts, roster) {
   var lines = (data.lines || []).map(function (l) { return String(l || ''); });
   dropInvented_(items, lines, prepared, unclear);
   splitArrows_(items, prepared, unclear);
+  slashLines_(items, lines, prepared, unclear);
   shareChainMeanings_(items, lines, prepared, unclear);
   realignLines_(items, prepared, unclear);
   acceptKnownMeanings_(items, prepared);
@@ -341,6 +344,47 @@ function splitArrows_(items, keyParts, unclear) {
     });
     unclear.push('dòng "' + orig + '" có mũi tên, đã tách thành ' +
                  placed.map(function (x) { return '"' + x.en + '"'; }).join(', '));
+  });
+}
+
+/**
+ * "Keep calm / take calm": dấu "/" viết tay bị đọc thành ":" ("Keep calm : take calm"), rồi AI lấy dòng "calm" ngay
+ * trên cho mục "Stay/keep calm". Dòng có hai cụm tiếng Anh nối bằng ":" và chung một chữ (không tính "the", "and"...) là lựa chọn: đổi ":" thành "/".
+ * Mục word nào khớp một lựa chọn trong dòng tốt hơn chữ đang điền thì lấy cả dòng (mọi lựa chọn vẫn phải đúng).
+ */
+function slashLines_(items, lines, keyParts, unclear) {
+  var flat = function (s) { return normLetters(stripAccents(s)); };
+  var english = function (s) { return /[a-z]/i.test(s) && !VI_MARKS_.test(s); };
+  var wordsOf = function (s) { return stripAccents(s).toLowerCase().split(/[^a-z']+/).filter(function (w) {
+    return w.length >= 3 && ['the', 'and', 'for', 'with', 'sth', 'someone', 'something', 'one'].indexOf(w) < 0;
+  }); };
+  var keyById = {}, isWord = {};
+  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; isWord[k.id] = p.kind === 'word'; }); });
+  var choices = [];
+  lines.forEach(function (raw, i) {
+    var l = raw.replace(/~~[^~]*~~/g, ' ');
+    var bits = l.split(':');
+    if (bits.length < 2 || /[=\/]/.test(bits[0]) || !english(bits[0]) || !english(bits[1])) return;
+    var a = wordsOf(bits[0]), b = wordsOf(bits[1]);
+    if (!a.length || !b.some(function (w) { return a.indexOf(w) >= 0; })) return;
+    var en = bits[0].trim() + ' / ' + bits[1].trim();
+    lines[i] = en + (bits.length > 2 ? ' : ' + bits.slice(2).join(':').trim() : '');
+    choices.push({en: en, parts: [bits[0].trim(), bits[1].trim()]});
+  });
+  choices.forEach(function (c) {
+    if (items.some(function (it) { return flat(it.written_en) === flat(c.en); })) return;
+    var best = null, bestErr = 2;
+    items.forEach(function (it) {
+      if (!isWord[it.id]) return;
+      var e = Math.min.apply(null, c.parts.map(function (s) { return letterErrors(s, keyById[it.id].en); }));
+      var now = it.written_en ? letterErrors(it.written_en, keyById[it.id].en) : Infinity;
+      if (e < bestErr && e < now) { bestErr = e; best = it; }
+    });
+    if (!best) return;
+    unclear.push('mục ' + keyById[best.id].en + ': em viết "' + c.en + '"' +
+                 (best.written_en ? ' (AI lấy "' + best.written_en + '")' : ''));
+    best.written_en = c.en;
+    best.correct = false;
   });
 }
 
