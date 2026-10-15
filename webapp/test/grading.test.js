@@ -649,3 +649,15 @@ test('"Keep calm : take calm" is read as slash choices, the synonym line "a : b"
   assert.equal(r.items[0].written_vi, 'bình tĩnh');
   assert.equal(G.letterErrors('Keep calm / take calm', 'Stay/keep calm'), 3);  // every written choice must be right
 });
+
+test('an item takes the line that matches the key instead of the bare head word; a line without meaning keeps the old one', () => {
+  const key = [{ name: 'TỪ VỰNG', kind: 'word', items: [{ id: '1.1', en: 'Stay/keep calm', vi: 'bình tĩnh; làm dịu' }] }];
+  const r = plain(G.normalizeGrade({
+    lines: ['1 . Calm : bình, làm dịu', '-> Stay / Keep calm : ~~gio~~'],
+    items: [{ id: '1.1', written_en: 'Calm', written_vi: 'bình, làm dịu', meaning_ok: true, correct: true }],
+  }, key, []));
+  assert.equal(r.items[0].written_en, 'Stay / Keep calm');
+  assert.equal(r.items[0].written_vi, 'bình, làm dịu');
+  assert.equal(r.items[0].meaning_ok, true);
+  assert.equal(G.letterErrors(r.items[0].written_en, 'Stay/keep calm'), 0);
+});

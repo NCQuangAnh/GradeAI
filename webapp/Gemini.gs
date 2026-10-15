@@ -283,6 +283,7 @@ function normalizeGrade(data, keyParts, roster) {
   slashLines_(items, lines, prepared, unclear);
   shareChainMeanings_(items, lines, prepared, unclear);
   realignLines_(items, prepared, unclear);
+  betterLine_(items, lines, prepared, unclear);
   acceptKnownMeanings_(items, prepared);
   var written = String(data.written_name || '').trim();
   var matched = matchName(written, roster);
@@ -533,6 +534,48 @@ function realignLines_(items, keyParts, unclear) {
     if (it.written_en) { it.meaning_ok = false; it.moved = true; }
     unclear.push('dòng "' + best.written_en + '" AI ghép vào mục ' + keyById[it.id].en + ', đã chuyển về mục ' +
                  keyById[best.id].en);
+  });
+}
+
+/**
+ * "1. Calm : bình, làm dịu" / "-> Stay / Keep calm : ~~gio~~": AI lấy dòng "Calm" cho mục "Stay/keep calm" dù dòng dưới
+ * viết đúng. Mục word đang sai từ 2 chữ cái mà một dòng chưa mục nào dùng khớp đáp án (sai tối đa 1 chữ cái) thì lấy dòng
+ * đó. Dòng không có nghĩa (nghĩa bị gạch) mà chứa mọi chữ của chữ cũ (từ phát triển từ dòng trên) thì giữ nghĩa cũ.
+ * Nghĩa xét lại (acceptKnownMeanings_, meaningChecks).
+ */
+function betterLine_(items, lines, keyParts, unclear) {
+  if (!lines.length) return;
+  var flat = function (s) { return normLetters(stripAccents(s)); };
+  var words = function (s) { return stripAccents(s).toLowerCase().split(/[^a-z']+/).filter(String); };
+  var keyById = {}, isWord = {};
+  keyParts.forEach(function (p) { p.items.forEach(function (k) { keyById[k.id] = k; isWord[k.id] = p.kind === 'word'; }); });
+  var cands = [];
+  lines.forEach(function (raw) {
+    var l = raw.replace(/~~[^~]*~~/g, ' ').replace(/^\s*(\d+\s*[.,)]?|->|=>|→|[-•+*])\s*/, '').trim();
+    var i = l.indexOf(':'), en = i < 0 ? l : l.slice(0, i), vi = i < 0 ? '' : l.slice(i + 1).trim();
+    if (VI_MARKS_.test(vi) || !vi) en.split('=').forEach(function (s) {
+      s = s.replace(/^\s*(->|=>|→|[-•+*])\s*/, '').trim();
+      if (/[a-z]/i.test(s) && !VI_MARKS_.test(s)) cands.push({en: s, vi: vi});
+    });
+  });
+  items.forEach(function (it) {
+    if (!isWord[it.id] || !it.written_en) return;
+    var key = keyById[it.id].en, now = letterErrors(it.written_en, key);
+    if (now < 2) return;
+    var best = null, bestErr = 2;
+    cands.forEach(function (c) {
+      if (items.some(function (o) { return flat(o.written_en) === flat(c.en); })) return;
+      var e = letterErrors(c.en, key);
+      if (e < bestErr) { bestErr = e; best = c; }
+    });
+    if (!best) return;
+    var oldWords = words(it.written_en), newWords = words(best.en);
+    var keepVi = !best.vi && oldWords.every(function (w) { return newWords.indexOf(w) >= 0; });
+    unclear.push('mục ' + key + ': AI lấy "' + it.written_en + '", em có viết "' + best.en + '"' +
+                 (keepVi ? ' (dòng này không có nghĩa, dùng nghĩa của dòng "' + it.written_en + '")' : ''));
+    it.written_en = best.en;
+    if (!keepVi) it.written_vi = best.vi;
+    it.meaning_ok = false; it.correct = false;
   });
 }
 

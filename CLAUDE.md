@@ -116,6 +116,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   liệt kê thêm động từ khuyết thiếu cùng loại, thêm "S +"/"IF +", thiếu dấu phẩy đều đúng. Khớp cô 15/16 em.
 - Dấu "/" viết tay bị đọc thành ":" ("Keep calm : take calm", TA8.1 4/10): GRADE_PROMPT dặn riêng, `slashLines_` đổi lại
   khi hai cụm tiếng Anh chung một chữ (bỏ "the", "and"...) và đưa cả dòng vào mục khớp hơn; mọi lựa chọn vẫn phải đúng.
+  AI lấy dòng "Calm" cho mục "Stay/keep calm" dù em có dòng "-> Stay / Keep calm" (nghĩa gạch): `betterLine_` đổi sang dòng
+  khớp đáp án (sai ≤ 1 chữ, chưa mục nào dùng) khi chữ cũ sai từ 2 chữ; dòng không nghĩa mà chứa chữ cũ thì giữ nghĩa cũ.
 - Em không có ảnh: ô đầu có "Tự nhập điểm..." (`absentSelect`/`onAbsentSelect`, `absentTyped`), dòng hiện đủ các ô.
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
