@@ -75,6 +75,14 @@ function slashChoices_(s) {
 function keyForms_(key) {
   var raw = String(key || ''), forms = [], base = [raw, raw.replace(/\([^)]*\)/g, ' ')];
   base.slice().forEach(function (s) { slashChoices_(s).slice(1).forEach(function (x) { base.push(x); }); });
+  // động từ + giới từ + sth/sb ("Ask for sth", "look after sb"): bỏ sth/sb cuối không tính lỗi ("ask for"). Cụm có
+  // sth/sb ở giữa ("Provide sth for sb") vẫn phải đủ.
+  var PH = '(?:sth|something|sb|smb|somebody|someone|O)';
+  base.slice().forEach(function (s) {
+    var m = new RegExp('^(.*\\b(?:for|of|to|with|about|on|in|at|from|into|after|by|up|out|off|over|against|like))\\s+' +
+                       PH + '\\s*$', 'i').exec(s.trim());
+    if (m && !new RegExp('(^|[^a-z])' + PH + '(?=[^a-z]|$)', 'i').test(m[1])) base.push(m[1]);
+  });
   withSingular_(base).forEach(function (s) {
     var f = notationNorm_(s);
     if (forms.indexOf(f) < 0) forms.push(f);

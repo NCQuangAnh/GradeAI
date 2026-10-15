@@ -689,3 +689,10 @@ test('a missed line with letters crossed inside a word is found; synonyms writte
   assert.equal(r.items[0].written_vi, 'ở vùng ngoại ô');
   assert.equal(G.letterErrors('Encourage OtoV', 'Encourage O to V'), 0);
 });
+
+test('verb + preposition + sth/sb: a missing sth/sb at the end is not an error, a placeholder earlier in the phrase still counts', () => {
+  assert.equal(G.letterErrors('ask for', 'Ask for sth'), 0);
+  assert.equal(G.letterErrors('look after', 'look after sb'), 0);
+  assert.ok(G.letterErrors('provide sth for', 'Provide sth for sb') >= 2);
+  assert.ok(G.letterErrors('Ask for you', 'Ask for sth') >= 2);
+});

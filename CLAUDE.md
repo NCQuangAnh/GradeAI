@@ -123,6 +123,8 @@ vào folder buổi. Cài đặt: `webapp/HUONG_DAN.md`.
   Nghĩa tràn dòng cũng áp dụng cho mục đơn ("Encourage O to V :" / "khuyên kh"), bỏ qua dòng tên em. "OtoV" = "O to V".
   Nghĩa có chữ bị gạch AI vẫn chép ("khu vực thành thị xa xôi"): sau khi hỏi lại nghĩa vẫn sai mà bỏ 1-2 chữ liền nhau thì
   khớp đáp án, `crossedMeaningChecks` hỏi lại kèm ảnh (mã "1.7 nghĩa", `CONFIG.CROSSED_MODELS`, 60 s).
+- Động từ + giới từ + sth/sb ở cuối ("Ask for sth", cô chốt 16/10): em bỏ sth/sb cuối không tính lỗi (`keyForms_`);
+  cụm có sth/sb ở giữa ("Provide sth for sb") vẫn phải đủ.
 - Em không có ảnh: ô đầu có "Tự nhập điểm..." (`absentSelect`/`onAbsentSelect`, `absentTyped`), dòng hiện đủ các ô.
 - Mỗi dòng bảng có `ai` = giá trị AI đề xuất ban đầu (không đổi khi cô sửa `values`), lưu trong `ket_qua_cham.json`.
   Dữ liệu này để sau vài tuần bàn làm "gợi ý chép phạt theo từng em" (so đề xuất AI với mức cô chốt). Chưa làm.
